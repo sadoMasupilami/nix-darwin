@@ -23,15 +23,25 @@
     # TODO bash completion to have completions available
     #enableBashCompletion = true;
     oh-my-zsh.enable = true;
-    oh-my-zsh.theme = "powerlevel10k/powerlevel10k";
+    #oh-my-zsh.theme = "powerlevel10k/powerlevel10k";
     initExtra = ''
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
+      source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme
+      [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+      source ${pkgs.terraform}/share/bash-completion/completions/terraform
+      compdef __start_kubectl k
+      compdef __start_helm h
+      compdef __start_terraform t
       '';
     shellAliases = {
       ls="eza --icons --classify --group-directories-first";
       ll="ls -lh";
       l="ls -lah";
       la="ls -lah -a";
+      k="kubectl";
+      h="helm";
+      t="terraform";
+
     };
   };
 
