@@ -1,0 +1,47 @@
+{ config, lib, pkgs, ... }:
+
+{
+  home.stateVersion = "23.11";
+
+  programs.git = {
+    enable = true;
+    userName = "sadomasupilami";
+    userEmail = "michiklug85@gmail.com";
+    extraConfig = {
+      github.user = "sadoMasupilami";
+      init = { defaultBranch = "trunk"; };
+      diff = { external = "${pkgs.difftastic}/bin/difft"; };
+    };
+  };
+
+  programs.zsh = {
+    enable = true;
+    enableCompletion = true;
+    autosuggestion.enable = true;
+    history.share = false;
+    syntaxHighlighting.enable = true;
+    # TODO bash completion to have completions available
+    #enableBashCompletion = true;
+    oh-my-zsh.enable = true;
+    oh-my-zsh.theme = "powerlevel10k/powerlevel10k";
+    initExtra = ''
+      source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
+      '';
+    shellAliases = {
+      ls="eza --icons --classify --group-directories-first";
+      ll="ls -lh";
+      l="ls -lah";
+      la="ls -lah -a";
+    };
+  };
+
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+  };
+
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
+}
