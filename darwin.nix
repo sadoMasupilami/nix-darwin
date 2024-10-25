@@ -34,6 +34,7 @@
       pkgs.vscode
       pkgs.docker-client
       pkgs.tree
+      pkgs.raycast
     ];
 
   # allow packages which are not open source
@@ -50,15 +51,6 @@
 
   programs.zsh = {
     enable = true;
-    enableCompletion = true;
-    enableBashCompletion = true;
-    enableFzfCompletion = true;
-    enableSyntaxHighlighting = true;
-  };
-
-  programs.bash = {
-    enable = true;
-    completion.enable = true;
   };
 
   # Set Git commit hash for darwin-version.
@@ -70,7 +62,7 @@
 
   nix.configureBuildUsers = true;
 
-  # enables touc id authentication in shell
+  # enables touch id authentication in shell
   security.pam.enableSudoTouchIdAuth = true;
 
   # The platform the configuration will be used on.
