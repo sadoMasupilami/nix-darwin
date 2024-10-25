@@ -4,7 +4,7 @@
   home.stateVersion = "23.11";
 
   programs.git = {
-    enable = true;
+    enable = false;
     userName = "sadomasupilami";
     userEmail = "michiklug85@gmail.com";
     extraConfig = {

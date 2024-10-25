@@ -75,4 +75,11 @@
     finder.FXPreferredViewStyle = "clmv"; # does not work
     loginwindow.LoginwindowText = "FullStacks Oida!";
   };
+
+  homebrew = {
+    enable = true;
+    casks = [
+      "1password"
+    ];
+  };
 }
