@@ -20,10 +20,10 @@
     autosuggestion.enable = true;
     history.share = false;
     syntaxHighlighting.enable = true;
-    # TODO bash completion to have completions available
-    #enableBashCompletion = true;
     oh-my-zsh.enable = true;
-    #oh-my-zsh.theme = "powerlevel10k/powerlevel10k";
+    autocd = true;
+    # if zsh startup time is slow, try this to debug
+    # zprof.enable = true;
     initExtra = ''
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
       source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme
@@ -41,7 +41,6 @@
       k="kubectl";
       h="helm";
       t="terraform";
-
     };
   };
 
