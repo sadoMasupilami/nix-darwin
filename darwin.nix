@@ -35,6 +35,11 @@
       pkgs.docker-client
       pkgs.tree
       pkgs.raycast
+      pkgs.discord
+      pkgs.mas
+      pkgs.iterm2
+      pkgs.slack
+      # kgs.telegram-desktop # currently not working
     ];
 
   # allow packages which are not open source
@@ -71,6 +76,9 @@
   system.defaults = {
     dock.autohide = true;
     dock.mru-spaces = false;
+    dock.persistent-apps = [
+      "/Applications/Roon.app"
+    ];
     finder.AppleShowAllExtensions = true;
     finder.FXPreferredViewStyle = "clmv"; # does not work
     loginwindow.LoginwindowText = "FullStacks Oida!";
@@ -83,6 +91,25 @@
     onActivation.upgrade = true;
     casks = [
       "1password"
+      "roon"
+      "microsoft-office"
+      "microsoft-auto-update"
+      "microsoft-remote-desktop"
+      "devpod"
+      "jetbrains-toolbox"
+      "obs"
+      "sony-ps-remote-play"
+      "qobuz"
+      "rancher"
+      "telegram"
+      "tidal"
+      "whatsapp"
+      "wifiman"
+      "google-chrome"
+      "steam"
     ];
+    masApps = {
+      "Goodnotes" = 1444383602;
+    };
   };
 }
