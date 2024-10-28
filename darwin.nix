@@ -73,17 +73,6 @@
   # The platform the configuration will be used on.
   nixpkgs.hostPlatform = "aarch64-darwin";
 
-  system.defaults = {
-    dock.autohide = true;
-    dock.mru-spaces = false;
-    dock.persistent-apps = [
-      "/Applications/Roon.app"
-    ];
-    finder.AppleShowAllExtensions = true;
-    finder.FXPreferredViewStyle = "clmv"; # does not work
-    loginwindow.LoginwindowText = "FullStacks Oida!";
-  };
-
   homebrew = {
     enable = true;
     onActivation.cleanup = "zap";
@@ -108,9 +97,68 @@
       "wifiman"
       "google-chrome"
       "steam"
+      "doll"
     ];
     masApps = {
       "Goodnotes" = 1444383602;
     };
+  };
+
+  system.defaults = {
+    dock.autohide = true;
+    dock.mru-spaces = false; # i love this, macos will not rearrange the desktops
+    dock.magnification = true;
+    dock.persistent-apps = [
+      "${pkgs.google-chrome}/Applications/Google Chrome.app"
+      "${pkgs.iterm2}/Applications/iTerm2.app"
+      "${pkgs.slack}/Applications/Slack.app"
+      "/Applications/Microsoft Outlook.app"
+      "/Applications/Microsoft Teams.app"
+      "/Applications/Roon.app"
+      "/Applications/1Password.app"
+    ];
+    dock.persistent-others = [
+      # sadly need to use CustomUserPreferences at the moment because you can not configure fan etc. here
+      #"/Users/michaelklug/Downloads"
+      #"/Applications"
+    ];
+    CustomUserPreferences = {
+      # Sets Downloads folder with fan view in Dock
+      "com.apple.dock" = {
+        persistent-others = [
+          {
+            "tile-data" = {
+              "file-data" = {
+                "_CFURLString" = "/Users/michaelklug/Downloads"; # TODO: don't hardcode this
+                "_CFURLStringType" = 0;
+              };
+              # Optional: sorting order
+              # 1 -> Name | 2 -> Date Added | 3 -> Date Modified
+              # 4 -> Date Created | 5 -> Kind
+              "arrangement" = 2;
+              # 0 -> Stack | 1 -> Folder
+              "displayas" = 0;
+              # 0 -> Automatic | 1 -> Fan | 2 -> Grid | 3 -> List
+              "showas" = 1;
+            };
+            "tile-type" = "directory-tile";
+          }
+          {
+            "tile-data" = {
+              "file-data" = {
+                "_CFURLString" = "/Applications";
+                "_CFURLStringType" = 0;
+              };
+            };
+            "tile-type" = "directory-tile";
+          }
+        ];
+      };
+    };
+
+    finder.AppleShowAllExtensions = true;
+    finder.FXPreferredViewStyle = "clmv"; # does not work
+
+    loginwindow.LoginwindowText = "FullStacks Oida!";
   };
 }
