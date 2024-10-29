@@ -3,6 +3,11 @@
 {
   home.stateVersion = "23.11";
 
+  home.packages = with pkgs; [
+    #utm
+    cowsay
+  ];
+
   programs.git = {
     enable = false;
     userName = "sadomasupilami";

@@ -98,6 +98,7 @@
       "google-chrome"
       "steam"
       "doll"
+      "utm"
     ];
     masApps = {
       "Goodnotes" = 1444383602;
