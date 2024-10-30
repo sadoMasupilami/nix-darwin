@@ -40,6 +40,8 @@
       pkgs.iterm2
       pkgs.slack
       # kgs.telegram-desktop # currently not working
+      pkgs.nmap
+      pkgs.nix-index
     ];
 
   # allow packages which are not open source
@@ -98,7 +100,6 @@
       "google-chrome"
       "steam"
       "doll"
-      "utm"
     ];
     masApps = {
       "Goodnotes" = 1444383602;
