@@ -42,6 +42,7 @@
       # kgs.telegram-desktop # currently not working
       pkgs.nmap
       pkgs.nix-index
+      pkgs.google-chrome
     ];
 
   # allow packages which are not open source
@@ -97,12 +98,13 @@
       "tidal"
       "whatsapp"
       "wifiman"
-      "google-chrome"
       "steam"
       "doll"
+      "calibre"
     ];
     masApps = {
       "Goodnotes" = 1444383602;
+      "1Password-Safari" = 1569813296;
     };
   };
 
@@ -111,7 +113,7 @@
     dock.mru-spaces = false; # i love this, macos will not rearrange the desktops
     dock.magnification = true;
     dock.persistent-apps = [
-      "${pkgs.google-chrome}/Applications/Google Chrome.app"
+      "/Applications/Safari.app"
       "${pkgs.iterm2}/Applications/iTerm2.app"
       "${pkgs.slack}/Applications/Slack.app"
       "/Applications/Microsoft Outlook.app"

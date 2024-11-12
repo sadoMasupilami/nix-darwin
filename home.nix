@@ -4,8 +4,8 @@
   home.stateVersion = "23.11";
 
   home.packages = with pkgs; [
-    #utm
-    cowsay
+    unixtools.ifconfig
+    unixtools.netstat
   ];
 
   programs.git = {
