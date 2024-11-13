@@ -101,6 +101,7 @@
       "steam"
       "doll"
       "calibre"
+      "windows-app"
     ];
     masApps = {
       "Goodnotes" = 1444383602;
