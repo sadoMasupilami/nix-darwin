@@ -43,6 +43,7 @@
       pkgs.nmap
       pkgs.nix-index
       pkgs.google-chrome
+      pkgs.glab
     ];
 
   # allow packages which are not open source
