@@ -99,7 +99,6 @@
       "whatsapp"
       "wifiman"
       "steam"
-      "doll"
       "calibre"
       "windows-app"
     ];
