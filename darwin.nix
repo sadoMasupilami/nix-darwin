@@ -101,6 +101,7 @@
       "steam"
       "calibre"
       "windows-app"
+      "chatgpt"
     ];
     masApps = {
       "Goodnotes" = 1444383602;
@@ -113,7 +114,7 @@
     dock.mru-spaces = false; # i love this, macos will not rearrange the desktops
     dock.magnification = true;
     dock.persistent-apps = [
-      "/Applications/Safari.app"
+      "/System/Cryptexes/App/System/Applications/Safari.app"
       "${pkgs.iterm2}/Applications/iTerm2.app"
       "${pkgs.slack}/Applications/Slack.app"
       "/Applications/Microsoft Outlook.app"
