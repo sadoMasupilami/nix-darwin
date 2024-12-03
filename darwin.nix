@@ -42,7 +42,6 @@
       # kgs.telegram-desktop # currently not working
       pkgs.nmap
       pkgs.nix-index
-      pkgs.google-chrome
       pkgs.glab
     ];
 
@@ -102,6 +101,7 @@
       "calibre"
       "windows-app"
       "chatgpt"
+      "google-chrome"
     ];
     masApps = {
       "Goodnotes" = 1444383602;
