@@ -1,3 +1,6 @@
+# macos wide configuration
+
+# global packages to install system wide (all users)
 { pkgs, ... }: {
   environment.systemPackages =
     [
@@ -8,7 +11,7 @@
       pkgs.direnv
       pkgs.nix-direnv
       pkgs.argocd
-      pkgs.signal-desktop
+      # pkgs.signal-desktop # currently not working
       pkgs.k9s
       # pkgs.azure-cli # currently not working
       pkgs.eza
@@ -34,7 +37,7 @@
       pkgs.vscode
       pkgs.docker-client
       pkgs.tree
-      pkgs.raycast
+      # pkgs.raycast # does not update
       pkgs.discord
       pkgs.mas
       pkgs.iterm2
@@ -43,20 +46,27 @@
       pkgs.nmap
       pkgs.nix-index
       pkgs.glab
+      pkgs.bat
+      pkgs.fd
+      pkgs.difftastic
+#      pkgs.ghostty # currently not building remove from brew again if working
     ];
 
-  # allow packages which are not open source
+  # allow packages which are not open source e.g. terraform
   nixpkgs.config.allowUnfree = true;
 
-  users.users.michaelklug.home = "/Users/michaelklug";
+  # allow broken packages
+  nixpkgs.config.allowBroken = true;
+
+  users.users.michaelklug.home = "/Users/michaelklug"; # TODO: CHANGEME
 
   # Auto upgrade nix package and the daemon service.
   services.nix-daemon.enable = true;
-  # nix.package = pkgs.nix;
 
   # Necessary for using flakes on this system.
   nix.settings.experimental-features = "nix-command flakes";
 
+  # enable zsh integration
   programs.zsh = {
     enable = true;
   };
@@ -76,6 +86,10 @@
   # The platform the configuration will be used on.
   nixpkgs.hostPlatform = "aarch64-darwin";
 
+  # install homebrew apps
+  # BEWARE! if onActivation.cleanup is set to "zap" this will delete homebrew
+  # apps not managed via nix. This should be the case but list all homebrew apps
+  # currently installed below (brew list)
   homebrew = {
     enable = true;
     onActivation.cleanup = "zap";
@@ -102,7 +116,12 @@
       "windows-app"
       "chatgpt"
       "google-chrome"
+      "ghostty" # remove me after working again from the nix store
+      #"raycast" # remove if it works via nix pkgs
     ];
+    # apps from the apple app store. use cli tool mas to search the numbers
+    # mas search <app name>
+    # the name on the left is arbitrary
     masApps = {
       "Goodnotes" = 1444383602;
       "1Password-Safari" = 1569813296;
@@ -110,23 +129,24 @@
   };
 
   system.defaults = {
+    # hide the dock
     dock.autohide = true;
-    dock.mru-spaces = false; # i love this, macos will not rearrange the desktops
+    # macos will not rearrange the desktops you should really use this
+    dock.mru-spaces = false;
+    # magnification if hovering over dock
     dock.magnification = true;
+    # Apps to be always in the dock
     dock.persistent-apps = [
       "/System/Cryptexes/App/System/Applications/Safari.app"
-      "${pkgs.iterm2}/Applications/iTerm2.app"
+      # "${pkgs.ghostty}/Applications/Ghostty.app" # redo after stable again
+      "/Applications/Ghostty.app"
       "${pkgs.slack}/Applications/Slack.app"
       "/Applications/Microsoft Outlook.app"
       "/Applications/Microsoft Teams.app"
       "/Applications/Roon.app"
       "/Applications/1Password.app"
     ];
-    dock.persistent-others = [
-      # sadly need to use CustomUserPreferences at the moment because you can not configure fan etc. here
-      #"/Users/michaelklug/Downloads"
-      #"/Applications"
-    ];
+    # sadly need to use CustomUserPreferences at the moment because you can not configure fan etc. here
     CustomUserPreferences = {
       # Sets Downloads folder with fan view in Dock
       "com.apple.dock" = {
@@ -161,9 +181,12 @@
       };
     };
 
+    # show extensions in finder!
     finder.AppleShowAllExtensions = true;
-    finder.FXPreferredViewStyle = "clmv"; # does not work
-
+    # column view, use clmv: Column view | Nlsv: List view |
+    # glyv gallery view | icnv icon view (default)
+    finder.FXPreferredViewStyle = "clmv";
+    # set login message
     loginwindow.LoginwindowText = "FullStacks Oida!";
   };
 }
