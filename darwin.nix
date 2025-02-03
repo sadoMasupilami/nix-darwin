@@ -37,7 +37,6 @@
       pkgs.vscode
       pkgs.docker-client
       pkgs.tree
-      # pkgs.raycast # does not update
       pkgs.discord
       pkgs.mas
       pkgs.iterm2
@@ -58,7 +57,11 @@
   # allow broken packages
   nixpkgs.config.allowBroken = true;
 
-  users.users.michaelklug.home = "/Users/michaelklug"; # TODO: CHANGEME
+  networking.hostName = "fs-macbook-pro-m1";
+  networking.localHostName = "fs-macbook-pro-m1";
+  networking.computerName = "fs-macbook-pro-m1";
+
+  users.users.michaelklug.home = "/Users/michaelklug";
 
   # Auto upgrade nix package and the daemon service.
   services.nix-daemon.enable = true;
