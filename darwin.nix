@@ -49,6 +49,7 @@
       pkgs.fd
       pkgs.difftastic
 #      pkgs.ghostty # currently not building remove from brew again if working
+      pkgs.azure-cli
     ];
 
   # allow packages which are not open source e.g. terraform
@@ -98,6 +99,9 @@
     onActivation.cleanup = "zap";
     onActivation.autoUpdate = true;
     onActivation.upgrade = true;
+    brews = [
+      "docker-credential-helper"
+    ];
     casks = [
       "1password"
       "roon"
