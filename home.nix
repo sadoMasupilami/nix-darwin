@@ -82,6 +82,7 @@
       theme = "iTerm2 Solarized Dark"
       window-height = 50
       window-width = 140
+      window-inherit-working-directory = false
     '';
   };
 
