@@ -4,7 +4,7 @@
 { pkgs, ... }: {
   environment.systemPackages =
     [
-      #pkgs.awscli2
+      pkgs.awscli2
       pkgs.yq-go
       pkgs.jq
       pkgs.lens
@@ -33,7 +33,7 @@
       pkgs.inetutils
       pkgs.zsh-autosuggestions
       pkgs.zsh-syntax-highlighting
-      pkgs.snyk
+      # pkgs.snyk # curretnly not working
       pkgs.vscode
       pkgs.docker-client
       pkgs.tree
@@ -50,6 +50,7 @@
       pkgs.difftastic
 #      pkgs.ghostty # currently not building remove from brew again if working
       pkgs.azure-cli
+      pkgs.kubeswitch
     ];
 
   # allow packages which are not open source e.g. terraform
@@ -63,9 +64,6 @@
   networking.computerName = "fs-macbook-pro-m1";
 
   users.users.michaelklug.home = "/Users/michaelklug";
-
-  # Auto upgrade nix package and the daemon service.
-  services.nix-daemon.enable = true;
 
   # Necessary for using flakes on this system.
   nix.settings.experimental-features = "nix-command flakes";
@@ -82,10 +80,8 @@
   # $ darwin-rebuild changelog
   system.stateVersion = 5;
 
-  nix.configureBuildUsers = true;
-
   # enables touch id authentication in shell
-  security.pam.enableSudoTouchIdAuth = true;
+  security.pam.services.sudo_local.touchIdAuth = true;
 
   # The platform the configuration will be used on.
   nixpkgs.hostPlatform = "aarch64-darwin";
@@ -124,7 +120,7 @@
       "chatgpt"
       "google-chrome"
       "ghostty" # remove me after working again from the nix store
-      #"raycast" # remove if it works via nix pkgs
+      "raycast" # remove if it works via nix pkgs
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>

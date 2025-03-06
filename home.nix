@@ -40,6 +40,7 @@
       compdef __start_kubectl k
       compdef __start_helm h
       compdef __start_terraform t
+      source <(switcher init zsh)
       '';
     shellAliases = {
       # beautiful ls
@@ -83,6 +84,39 @@
       window-height = 50
       window-width = 140
       window-inherit-working-directory = false
+    '';
+  };
+
+  # kubeswitch configuration
+  home.file.".kube/switch-config.yaml" = {
+    text = ''
+      kind: SwitchConfig
+      version: v1alpha1
+      kubeconfigStores:
+      - kind: filesystem
+        kubeconfigName: "*.yaml"
+        showPrefix: true
+        paths:
+        - ~/Downloads
+        - ~/.kube/config
+      #- kind: rancher
+      #  id: rancher-internal
+      #  config:
+      #    rancherAPIAddress: https://rancher-internal.lab.cloudstacks.eu/v3
+      #    rancherToken: token-9lt57:XXXXX
+      #  cache:
+      #    kind: filesystem
+      #    config:
+      #      path: ~/.kube/cache
+      #- kind: eks
+      #  id: fullstacks-aws
+      #  config:
+      #    profile: default
+      #    region: eu-central-1
+      - kind: azure
+        id: fullstacks-azure
+        config:
+          subscriptionID: 0ac1cdf8-3f0b-400e-9059-c7f09e51be66
     '';
   };
 
