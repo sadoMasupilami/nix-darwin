@@ -51,6 +51,7 @@
 #      pkgs.ghostty # currently not building remove from brew again if working
       pkgs.azure-cli
       pkgs.kubeswitch
+      pkgs.rar
     ];
 
   # allow packages which are not open source e.g. terraform
