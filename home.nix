@@ -98,7 +98,7 @@
         showPrefix: true
         paths:
         - ~/Downloads
-        - ~/.kube/config
+        - ~/.kube/
       #- kind: rancher
       #  id: rancher-internal
       #  config:
