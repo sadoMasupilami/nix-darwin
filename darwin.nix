@@ -122,6 +122,8 @@
       "google-chrome"
       "ghostty" # remove me after working again from the nix store
       "raycast" # remove if it works via nix pkgs
+      "brave-browser"
+      "commander-one"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
