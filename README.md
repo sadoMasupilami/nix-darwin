@@ -1,8 +1,12 @@
 # initial install
-## first install nix
+## first install stuff to get started
 ```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
 sh -s -- install
+
+softwareupdate --install-rosetta
 ```
 
 ## clone the repo
@@ -39,5 +43,5 @@ git clone https://github.com/LnL7/nix-darwin.git
 ~/.config/nix-darwin/home-manager/apply-home-manager.sh
 ```
 
-# Questions
-ask Michael
+# manual stuff for me
+- 

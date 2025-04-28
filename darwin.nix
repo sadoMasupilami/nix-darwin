@@ -127,6 +127,8 @@
       "raycast" # remove if it works via nix pkgs
       "brave-browser"
       "commander-one"
+      "daisydisk"
+      "bartender"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
