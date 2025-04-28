@@ -33,6 +33,8 @@
     oh-my-zsh.enable = true;
     autocd = true;
     initExtra = ''
+      source "$(fzf-share)/key-bindings.zsh"
+      source "$(fzf-share)/completion.zsh"
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
       source ${pkgs.zsh-powerlevel10k}/share/zsh-powerlevel10k/powerlevel10k.zsh-theme
       [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
@@ -59,8 +61,8 @@
   programs.fzf = {
     enable = true;
     enableZshIntegration = true;
-    fileWidgetCommand = "fd --type f . $PWD";
-    fileWidgetOptions = [ "--preview 'bat --style=numbers --color=always --line-range :500 {}'" ];
+    #fileWidgetCommand = "fd --type f . $PWD";
+    #fileWidgetOptions = [ "--preview 'bat --style=numbers --color=always --line-range :500 {}'" ];
     #think about using
     #changeDirWidgetCommand = "fd --type d . $PWD";
     #changeDirWidgetOptions = [ "--preview 'tree -C {} | head -200'" ];

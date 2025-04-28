@@ -143,7 +143,8 @@
     dock.magnification = true;
     # Apps to be always in the dock
     dock.persistent-apps = [
-      "/System/Cryptexes/App/System/Applications/Safari.app"
+      #"/System/Cryptexes/App/System/Applications/Safari.app"
+      "/Applications/Brave Browser.app"
       # "${pkgs.ghostty}/Applications/Ghostty.app" # redo after stable again
       "/Applications/Ghostty.app"
       "${pkgs.slack}/Applications/Slack.app"
