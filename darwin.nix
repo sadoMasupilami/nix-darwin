@@ -60,6 +60,9 @@
   # allow broken packages
   nixpkgs.config.allowBroken = true;
 
+  # needed because of determinate installer
+  nix.enable = false;
+
   networking.hostName = "fs-macbook-pro-m1";
   networking.localHostName = "fs-macbook-pro-m1";
   networking.computerName = "fs-macbook-pro-m1";
