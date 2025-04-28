@@ -63,9 +63,9 @@
   # needed because of determinate installer
   nix.enable = false;
 
-  networking.hostName = "fs-macbook-pro-m1";
-  networking.localHostName = "fs-macbook-pro-m1";
-  networking.computerName = "fs-macbook-pro-m1";
+  networking.hostName = "fs-macbook-pro-m4";
+  networking.localHostName = "fs-macbook-pro-m4";
+  networking.computerName = "fs-macbook-pro-m4";
 
   users.users.michaelklug.home = "/Users/michaelklug";
 
