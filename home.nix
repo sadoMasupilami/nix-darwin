@@ -28,10 +28,28 @@
     enable = true;
     enableCompletion = true;
     autosuggestion.enable = true;
-    history.share = false;
+    history = {
+      ignoreDups = true;
+      ignoreSpace = false;
+      save = 100000;
+      share = false;
+      size = 100000;
+    };
     syntaxHighlighting.enable = true;
     oh-my-zsh.enable = true;
     autocd = true;
+    plugins = [
+      {
+        name = "powerlevel10k";
+        src = pkgs.zsh-powerlevel10k;
+        file = "share/zsh-powerlevel10k/powerlevel10k.zsh-theme";
+      }
+      {
+        name = "powerlevel10k-config";
+        src = lib.cleanSource ./config;
+        file = "p10k.zsh";
+      }
+    ];
     initExtra = ''
       source "$(fzf-share)/key-bindings.zsh"
       source "$(fzf-share)/completion.zsh"
