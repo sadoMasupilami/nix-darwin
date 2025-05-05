@@ -50,7 +50,7 @@
         file = "p10k.zsh";
       }
     ];
-    initExtra = ''
+    initContent = ''
       source "$(fzf-share)/key-bindings.zsh"
       source "$(fzf-share)/completion.zsh"
       source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
