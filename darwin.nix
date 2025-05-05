@@ -101,6 +101,7 @@
     onActivation.upgrade = true;
     brews = [
       "docker-credential-helper"
+      "mas"
     ];
     casks = [
       "1password"
@@ -200,5 +201,7 @@
     finder.FXPreferredViewStyle = "clmv";
     # set login message
     loginwindow.LoginwindowText = "FullStacks Oida!";
+    # Set F keys to be the default instead of the functions
+    NSGlobalDomain."com.apple.keyboard.fnState" = true;
   };
 }
