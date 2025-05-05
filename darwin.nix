@@ -130,6 +130,7 @@
       "commander-one"
       "daisydisk"
       "bartender"
+      "webex"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
@@ -137,6 +138,7 @@
     masApps = {
       "Goodnotes" = 1444383602;
       "1Password-Safari" = 1569813296;
+      "Harvest" = 506189836;
     };
   };
 

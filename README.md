@@ -44,4 +44,5 @@ git clone https://github.com/LnL7/nix-darwin.git
 ```
 
 # manual stuff for me
+- Bartender License
 - 
