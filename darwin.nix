@@ -147,6 +147,9 @@
     dock.autohide = true;
     # macos will not rearrange the desktops you should really use this
     dock.mru-spaces = false;
+    # size of the dock symbols
+    dock.tilesize = 45;
+    dock.largesize = 70;
     # magnification if hovering over dock
     dock.magnification = true;
     # Apps to be always in the dock
@@ -205,5 +208,7 @@
     loginwindow.LoginwindowText = "FullStacks Oida!";
     # Set F keys to be the default instead of the functions
     NSGlobalDomain."com.apple.keyboard.fnState" = true;
+    # no show desktop on clicking wallpaper
+    WindowManager.EnableStandardClickToShowDesktop = false;
   };
 }
