@@ -145,6 +145,7 @@
     text = ''
       Host *
         SetEnv TERM=xterm-256color
+      Include ~/.config/devpod/ssh.config
     '';
   };
 

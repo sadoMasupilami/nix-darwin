@@ -11,6 +11,7 @@
       pkgs.direnv
       pkgs.nix-direnv
       pkgs.argocd
+      pkgs.argo
       # pkgs.signal-desktop # currently not working
       pkgs.k9s
       # pkgs.azure-cli # currently not working
@@ -52,6 +53,8 @@
       pkgs.azure-cli
       pkgs.kubeswitch
       pkgs.rar
+      pkgs.talosctl
+      pkgs.kcat
     ];
 
   # allow packages which are not open source e.g. terraform
@@ -131,6 +134,7 @@
       "daisydisk"
       "bartender"
       "webex"
+      "badgeify"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
