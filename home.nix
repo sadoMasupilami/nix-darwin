@@ -28,6 +28,7 @@
     enable = true;
     enableCompletion = true;
     autosuggestion.enable = true;
+    autosuggestion.highlight = "fg=10"; # needed as my ghostty color scheme won't be seeable otherwise
     history = {
       ignoreDups = true;
       ignoreSpace = false;
