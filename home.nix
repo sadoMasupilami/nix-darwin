@@ -162,7 +162,30 @@
   home.file.".bin/nix-config-apply" = {
     executable = true;
     text = ''
-      darwin-rebuild switch --flake ~/.config/nix-darwin#macos
+      sudo darwin-rebuild switch --flake ~/.config/nix-darwin#macos
     '';
   };
+
+#  # helm repos
+#  xdg.configFile."helm/repositories.yaml".text = let
+#    # define all your repos here
+#    repos = {
+#      argo     = "https://argoproj.github.io/argo-helm";
+#      bitnami  = "https://charts.bitnami.com/bitnami";
+#      # …add more if you like
+#    };
+#
+#    # get the list of names ("argo", "bitnami", …)
+#    names = lib.attrNames repos;
+#
+#    # for each name produce a YAML item string
+#    entries = lib.concatStringsSep "\n" (lib.map (name:
+#      "  - name: ${name}\n    url: ${repos.${name}}"
+#    ) names);
+#  in ''
+#    apiVersion: v1
+#    generated: 0001-01-01T00:00:00Z
+#    repositories:
+#${entries}
+#  '';
 }

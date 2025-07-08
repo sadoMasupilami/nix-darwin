@@ -146,6 +146,8 @@
     };
   };
 
+  system.primaryUser = "michaelklug";
+
   system.defaults = {
     # hide the dock
     dock.autohide = true;
