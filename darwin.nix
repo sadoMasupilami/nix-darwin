@@ -4,6 +4,7 @@
 { pkgs, ... }: {
   environment.systemPackages =
     [
+      pkgs.git
       pkgs.awscli2
       pkgs.yq-go
       pkgs.jq
