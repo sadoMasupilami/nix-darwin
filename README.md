@@ -20,7 +20,7 @@ git clone https://github.com/LnL7/nix-darwin.git
 
 ## apply the configuration
 ```bash
-nix run nix-darwin -- switch --flake ~/.config/nix-darwin#macos
+sudo nix run nix-darwin -- switch --flake ~/.config/nix-darwin#macos
 ```
 
 # updating in the future
