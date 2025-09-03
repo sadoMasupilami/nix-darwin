@@ -56,6 +56,7 @@
       pkgs.rar
       pkgs.talosctl
       pkgs.kcat
+      pkgs.openshift
     ];
 
   # allow packages which are not open source e.g. terraform
