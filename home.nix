@@ -1,5 +1,10 @@
 # user wide comnfigiuration
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   # basically never chnage this
@@ -14,12 +19,16 @@
   # git configuration see this and follwing for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
   programs.git = {
     enable = false;
-    userName = "sadomasupilami"; #TODO: CHANGEME
-    userEmail = "michiklug85@gmail.com"; #TODO: CHANGEME
+    userName = "sadomasupilami"; # TODO: CHANGEME
+    userEmail = "michiklug85@gmail.com"; # TODO: CHANGEME
     extraConfig = {
-      github.user = "sadoMasupilami"; #TODO: CHANGEME
-      init = { defaultBranch = "trunk"; };
-      diff = { external = "${pkgs.difftastic}/bin/difft"; };
+      github.user = "sadoMasupilami"; # TODO: CHANGEME
+      init = {
+        defaultBranch = "trunk";
+      };
+      diff = {
+        external = "${pkgs.difftastic}/bin/difft";
+      };
     };
   };
 
@@ -62,17 +71,17 @@
       compdef __start_helm h
       compdef __start_terraform t
       source <(switcher init zsh)
-      '';
+    '';
     shellAliases = {
       # beautiful ls
-      ls="eza --icons --classify --group-directories-first";
-      ll="ls -lh";
-      l="ls -lah";
-      la="ls -lah -a";
+      ls = "eza --icons --classify --group-directories-first";
+      ll = "ls -lh";
+      l = "ls -lah";
+      la = "ls -lah -a";
       # quicker aliases
-      k="kubectl";
-      h="helm";
-      t="terraform";
+      k = "kubectl";
+      h = "helm";
+      t = "terraform";
     };
   };
 
@@ -167,26 +176,26 @@
     '';
   };
 
-#  # helm repos
-#  xdg.configFile."helm/repositories.yaml".text = let
-#    # define all your repos here
-#    repos = {
-#      argo     = "https://argoproj.github.io/argo-helm";
-#      bitnami  = "https://charts.bitnami.com/bitnami";
-#      # …add more if you like
-#    };
-#
-#    # get the list of names ("argo", "bitnami", …)
-#    names = lib.attrNames repos;
-#
-#    # for each name produce a YAML item string
-#    entries = lib.concatStringsSep "\n" (lib.map (name:
-#      "  - name: ${name}\n    url: ${repos.${name}}"
-#    ) names);
-#  in ''
-#    apiVersion: v1
-#    generated: 0001-01-01T00:00:00Z
-#    repositories:
-#${entries}
-#  '';
+  #  # helm repos
+  #  xdg.configFile."helm/repositories.yaml".text = let
+  #    # define all your repos here
+  #    repos = {
+  #      argo     = "https://argoproj.github.io/argo-helm";
+  #      bitnami  = "https://charts.bitnami.com/bitnami";
+  #      # …add more if you like
+  #    };
+  #
+  #    # get the list of names ("argo", "bitnami", …)
+  #    names = lib.attrNames repos;
+  #
+  #    # for each name produce a YAML item string
+  #    entries = lib.concatStringsSep "\n" (lib.map (name:
+  #      "  - name: ${name}\n    url: ${repos.${name}}"
+  #    ) names);
+  #  in ''
+  #    apiVersion: v1
+  #    generated: 0001-01-01T00:00:00Z
+  #    repositories:
+  #${entries}
+  #  '';
 }

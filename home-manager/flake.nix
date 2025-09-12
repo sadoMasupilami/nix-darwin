@@ -11,22 +11,24 @@
     };
   };
 
-  outputs = { nixpkgs, home-manager, ... }:
+  outputs =
+    { nixpkgs, home-manager, ... }:
     let
       lib = nixpkgs.lib;
-      system = "x86_64-linux"; #TODO: CHANGEME BACK
+      system = "x86_64-linux"; # TODO: CHANGEME BACK
       username = "michaelklug";
       pkgs = import nixpkgs { inherit system; };
-    in {
+    in
+    {
       homeConfigurations.${username} = home-manager.lib.homeManagerConfiguration {
-          inherit pkgs;
-          modules = [
-           ../home.nix
-           {
-           home.username = "michaelklug";
-           home.homeDirectory = "/Users/michaelklug";
-           }
-          ];
+        inherit pkgs;
+        modules = [
+          ../home.nix
+          {
+            home.username = "michaelklug";
+            home.homeDirectory = "/Users/michaelklug";
+          }
+        ];
       };
     };
 }

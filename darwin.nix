@@ -1,63 +1,66 @@
 # macos wide configuration
 
 # global packages to install system wide (all users)
-{ pkgs, ... }: {
-  environment.systemPackages =
-    [
-      pkgs.git
-      pkgs.awscli2
-      pkgs.yq-go
-      pkgs.jq
-      pkgs.lens
-      pkgs.direnv
-      pkgs.nix-direnv
-      pkgs.argocd
-      pkgs.argo
-      # pkgs.signal-desktop # currently not working
-      pkgs.k9s
-      # pkgs.azure-cli # currently not working
-      pkgs.eza
-      pkgs.fzf
-      pkgs.fzf-zsh
-      pkgs.zsh-fzf-tab
-      pkgs.oh-my-zsh
-      pkgs.zsh-powerlevel10k
-      pkgs.go
-      pkgs.kubectl
-      pkgs.kubernetes-helm
-      pkgs.kubectx
-      pkgs.wget
-      pkgs.unixtools.watch
-      pkgs.tilt
-      pkgs.terraform
-      pkgs.terragrunt
-      pkgs.pre-commit
-      pkgs.inetutils
-      pkgs.zsh-autosuggestions
-      pkgs.zsh-syntax-highlighting
-      # pkgs.snyk # curretnly not working
-      pkgs.vscode
-      pkgs.docker-client
-      pkgs.tree
-      pkgs.discord
-      pkgs.mas
-      pkgs.iterm2
-      pkgs.slack
-      # kgs.telegram-desktop # currently not working
-      pkgs.nmap
-      pkgs.nix-index
-      pkgs.glab
-      pkgs.bat
-      pkgs.fd
-      pkgs.difftastic
-#      pkgs.ghostty # currently not building remove from brew again if working
-      pkgs.azure-cli
-      pkgs.kubeswitch
-      pkgs.rar
-      pkgs.talosctl
-      pkgs.kcat
-      pkgs.openshift
-    ];
+{ pkgs, ... }:
+{
+  environment.systemPackages = [
+    pkgs.git
+    pkgs.awscli2
+    pkgs.yq-go
+    pkgs.jq
+    pkgs.lens
+    pkgs.direnv
+    pkgs.nix-direnv
+    pkgs.argocd
+    pkgs.argo
+    # pkgs.signal-desktop # currently not working
+    pkgs.k9s
+    # pkgs.azure-cli # currently not working
+    pkgs.eza
+    pkgs.fzf
+    pkgs.fzf-zsh
+    pkgs.zsh-fzf-tab
+    pkgs.oh-my-zsh
+    pkgs.zsh-powerlevel10k
+    pkgs.go
+    pkgs.kubectl
+    pkgs.kubernetes-helm
+    pkgs.kubectx
+    pkgs.wget
+    pkgs.unixtools.watch
+    pkgs.tilt
+    pkgs.terraform
+    pkgs.terragrunt
+    pkgs.pre-commit
+    pkgs.inetutils
+    pkgs.zsh-autosuggestions
+    pkgs.zsh-syntax-highlighting
+    # pkgs.snyk # curretnly not working
+    pkgs.vscode
+    pkgs.docker-client
+    pkgs.tree
+    pkgs.discord
+    pkgs.mas
+    pkgs.iterm2
+    pkgs.slack
+    # kgs.telegram-desktop # currently not working
+    pkgs.nmap
+    pkgs.nix-index
+    pkgs.glab
+    pkgs.bat
+    pkgs.fd
+    pkgs.difftastic
+    #      pkgs.ghostty # currently not building remove from brew again if working
+    pkgs.azure-cli
+    pkgs.kubeswitch
+    pkgs.rar
+    pkgs.talosctl
+    pkgs.kcat
+    pkgs.openshift
+    pkgs.realvnc-vnc-viewer
+    pkgs.nixd
+    pkgs.nixfmt-rfc-style
+  ];
 
   # allow packages which are not open source e.g. terraform
   nixpkgs.config.allowUnfree = true;

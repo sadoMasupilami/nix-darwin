@@ -21,36 +21,46 @@
     };
   };
 
-  outputs = inputs@{ self, nix-darwin, nixpkgs, home-manager, nix-homebrew, homebrew-core, homebrew-cask, ... }: {
-      darwinConfigurations."macos" =
-        nix-darwin.lib.darwinSystem {
-          system = "aarch64-darwin";
-          modules = [
-            ./darwin.nix
-            nix-homebrew.darwinModules.nix-homebrew
-            {
-              nix-homebrew = {
-                # Install Homebrew under the default prefix
-                enable = true;
+  outputs =
+    inputs@{
+      self,
+      nix-darwin,
+      nixpkgs,
+      home-manager,
+      nix-homebrew,
+      homebrew-core,
+      homebrew-cask,
+      ...
+    }:
+    {
+      darwinConfigurations."macos" = nix-darwin.lib.darwinSystem {
+        system = "aarch64-darwin";
+        modules = [
+          ./darwin.nix
+          nix-homebrew.darwinModules.nix-homebrew
+          {
+            nix-homebrew = {
+              # Install Homebrew under the default prefix
+              enable = true;
 
-                # Apple Silicon Only: Also install Homebrew under the default Intel prefix for Rosetta 2
-                enableRosetta = true;
+              # Apple Silicon Only: Also install Homebrew under the default Intel prefix for Rosetta 2
+              enableRosetta = true;
 
-                # User owning the Homebrew prefix
-                user = "michaelklug";
+              # User owning the Homebrew prefix
+              user = "michaelklug";
 
-                # Automatically migrate existing Homebrew installations
-                autoMigrate = true;
-              };
-            }
-            home-manager.darwinModules.home-manager
-            {
-              home-manager.useGlobalPkgs = true;
-              home-manager.useUserPackages = true;
-              home-manager.users.michaelklug = import ./home.nix;
-            }
-          ];
-        };
-        darwinPackages = self.darwinConfigurations."macos".pkgs;
+              # Automatically migrate existing Homebrew installations
+              autoMigrate = true;
+            };
+          }
+          home-manager.darwinModules.home-manager
+          {
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.users.michaelklug = import ./home.nix;
+          }
+        ];
       };
+      darwinPackages = self.darwinConfigurations."macos".pkgs;
+    };
 }
