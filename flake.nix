@@ -52,6 +52,8 @@
               # Automatically migrate existing Homebrew installations
               autoMigrate = true;
             };
+            # let determinate manage the nix installation
+            nix.enable = false;
           }
           home-manager.darwinModules.home-manager
           {

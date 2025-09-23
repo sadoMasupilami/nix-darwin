@@ -15,7 +15,6 @@
     pkgs.argo
     # pkgs.signal-desktop # currently not working
     pkgs.k9s
-    # pkgs.azure-cli # currently not working
     pkgs.eza
     pkgs.fzf
     pkgs.fzf-zsh
@@ -40,7 +39,6 @@
     pkgs.docker-client
     pkgs.tree
     pkgs.discord
-    pkgs.mas
     pkgs.iterm2
     pkgs.slack
     # kgs.telegram-desktop # currently not working
@@ -60,13 +58,14 @@
     pkgs.realvnc-vnc-viewer
     pkgs.nixd
     pkgs.nixfmt-rfc-style
+    pkgs.spotify
   ];
 
   # allow packages which are not open source e.g. terraform
   nixpkgs.config.allowUnfree = true;
 
   # allow broken packages
-  nixpkgs.config.allowBroken = true;
+  #nixpkgs.config.allowBroken = true;
 
   # needed because of determinate installer
   nix.enable = false;
@@ -78,7 +77,8 @@
   users.users.michaelklug.home = "/Users/michaelklug";
 
   # Necessary for using flakes on this system.
-  nix.settings.experimental-features = "nix-command flakes";
+  # manages now by determinate
+  #nix.settings.experimental-features = "nix-command flakes";
 
   # enable zsh integration
   programs.zsh = {
