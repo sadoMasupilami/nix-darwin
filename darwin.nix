@@ -172,7 +172,7 @@
       "${pkgs.slack}/Applications/Slack.app"
       "/Applications/Microsoft Outlook.app"
       "/Applications/Microsoft Teams.app"
-      "/Applications/Roon.app"
+      "${pkgs.spotify}/Applications/Spotify.app"
       "/Applications/1Password.app"
     ];
     # sadly need to use CustomUserPreferences at the moment because you can not configure fan etc. here

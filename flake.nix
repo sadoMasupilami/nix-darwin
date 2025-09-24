@@ -1,6 +1,10 @@
-# ignore this file until you really know you need to change it :)
 {
   description = "Michaels Macos system flake";
+
+  nixConfig = {
+    extra-substituters = [ "https://cache.flox.dev" ];
+    extra-trusted-public-keys = [ "flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs=" ];
+  };
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -10,6 +14,7 @@
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
+    flox.url = "github:flox/flox/v1.7.3";
     # Optional: Declarative tap management
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
@@ -35,6 +40,7 @@
     {
       darwinConfigurations."macos" = nix-darwin.lib.darwinSystem {
         system = "aarch64-darwin";
+        specialArgs = { inherit inputs; };
         modules = [
           ./darwin.nix
           nix-homebrew.darwinModules.nix-homebrew
@@ -55,6 +61,13 @@
             # let determinate manage the nix installation
             nix.enable = false;
           }
+          inputs.flox.darwinModules.flox
+          ({ pkgs, ... }: {
+            environment.systemPackages = [
+              inputs.flox.packages.${pkgs.system}.default
+            ];
+            nix.settings.experimental-features = [ "nix-command" "flakes" ];
+          })
           home-manager.darwinModules.home-manager
           {
             home-manager.useGlobalPkgs = true;
