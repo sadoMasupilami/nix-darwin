@@ -37,6 +37,8 @@
     # pkgs.snyk # curretnly not working
     pkgs.vscode
     pkgs.docker-client
+    pkgs.docker-credential-helpers
+    pkgs.skopeo
     pkgs.tree
     pkgs.discord
     pkgs.iterm2
@@ -59,6 +61,7 @@
     pkgs.nixd
     pkgs.nixfmt-rfc-style
     pkgs.spotify
+    pkgs.uv
   ];
 
   # allow packages which are not open source e.g. terraform
