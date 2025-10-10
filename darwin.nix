@@ -60,7 +60,6 @@
     pkgs.realvnc-vnc-viewer
     pkgs.nixd
     pkgs.nixfmt-rfc-style
-    pkgs.spotify
     pkgs.uv
   ];
 
@@ -141,8 +140,9 @@
       "commander-one"
       "daisydisk"
       "bartender"
-      "webex"
       "badgeify"
+      "webex"
+      "spotify"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
@@ -175,7 +175,7 @@
       "${pkgs.slack}/Applications/Slack.app"
       "/Applications/Microsoft Outlook.app"
       "/Applications/Microsoft Teams.app"
-      "${pkgs.spotify}/Applications/Spotify.app"
+      "/Applications/Spotify.app"
       "/Applications/1Password.app"
     ];
     # sadly need to use CustomUserPreferences at the moment because you can not configure fan etc. here
