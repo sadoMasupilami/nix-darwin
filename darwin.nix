@@ -109,9 +109,13 @@
     onActivation.cleanup = "zap";
     onActivation.autoUpdate = true;
     onActivation.upgrade = true;
+    taps = [
+      "azure/azd"
+    ];
     brews = [
       "docker-credential-helper"
       "mas"
+      "azd"
     ];
     casks = [
       "1password"
@@ -143,6 +147,7 @@
       "badgeify"
       "webex"
       "spotify"
+      "podman-desktop"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
