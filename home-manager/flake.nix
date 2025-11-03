@@ -15,7 +15,7 @@
     { nixpkgs, home-manager, ... }:
     let
       lib = nixpkgs.lib;
-      system = "x86_64-linux"; # TODO: CHANGEME BACK
+      system = "x86_64-linux";
       username = "michaelklug";
       pkgs = import nixpkgs { inherit system; };
     in

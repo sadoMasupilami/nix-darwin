@@ -148,6 +148,7 @@
       "webex"
       "spotify"
       "podman-desktop"
+      "vlc"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
