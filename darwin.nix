@@ -221,14 +221,35 @@
 
     # show extensions in finder!
     finder.AppleShowAllExtensions = true;
-    # column view, use clmv: Column view | Nlsv: List view |
-    # glyv gallery view | icnv icon view (default)
-    finder.FXPreferredViewStyle = "clmv";
+    # Change the default finder view.
+    # "icnv" = Icon view, "Nlsv" = List view, "clmv" = Column View, "Flwv" = Gallery View
+    # The default is icnv.
+    finder.FXPreferredViewStyle = "Nlsv";
     # set login message
     loginwindow.LoginwindowText = "FullStacks Oida!";
     # Set F keys to be the default instead of the functions
     NSGlobalDomain."com.apple.keyboard.fnState" = true;
     # no show desktop on clicking wallpaper
     WindowManager.EnableStandardClickToShowDesktop = false;
+    # show hidden files in finder
+    # finder.AppleShowAllFiles = true;
+    NSGlobalDomain.AppleShowAllFiles = true;
+    # Change the default folder shown in Finder windows.
+    # "Other" corresponds to the value of NewWindowTargetPath.
+    # The default is unset ("Recents").
+    finder.NewWindowTarget = "Other";
+    # Sets the URI to open when NewWindowTarget is "Other".
+    # Spaces and similar characters must be escaped.
+    # If the value is invalid, Finder will open your home directory.
+    finder.NewWindowTargetPath = "file:///Users/michaelklug/Downloads";
+    # Show path breadcrumbs in finder windows.
+    # The default is false.
+    finder.ShowPathbar = true;
+    # Whether to show the full POSIX filepath in the window title.
+    # The default is false.
+    finder._FXShowPosixPathInTitle = true;
+    # Keep folders on top when sorting by name.
+    # The default is false.
+    finder._FXSortFoldersFirst = true;
   };
 }
