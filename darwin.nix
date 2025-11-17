@@ -156,7 +156,6 @@
     masApps = {
       "Goodnotes" = 1444383602;
       "1Password-Safari" = 1569813296;
-      "Harvest" = 506189836;
     };
   };
 
