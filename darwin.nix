@@ -12,7 +12,7 @@
     pkgs.direnv
     pkgs.nix-direnv
     pkgs.argocd
-    pkgs.argo
+    pkgs.argo-workflows
     # pkgs.signal-desktop # currently not working
     pkgs.k9s
     pkgs.eza
