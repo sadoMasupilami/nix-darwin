@@ -14,6 +14,51 @@
   home.packages = with pkgs; [
     unixtools.ifconfig
     unixtools.netstat
+    git
+    awscli2
+    yq-go
+    jq
+    direnv
+    nix-direnv
+    argocd
+    argo-workflows
+    k9s
+    eza
+    fzf
+    fzf-zsh
+    zsh-fzf-tab
+    oh-my-zsh
+    zsh-powerlevel10k
+    go
+    kubectl
+    kubernetes-helm
+    kubectx
+    wget
+    tilt
+    terraform
+    terragrunt
+    pre-commit
+    inetutils
+    zsh-autosuggestions
+    zsh-syntax-highlighting
+    docker-client
+    skopeo
+    tree
+    nmap
+    nix-index
+    glab
+    bat
+    fd
+    difftastic
+    azure-cli
+    kubeswitch
+    rar
+    talosctl
+    kcat
+    openshift
+    nixd
+    nixfmt-rfc-style
+    uv
   ];
 
   # git configuration see this and follwing for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)

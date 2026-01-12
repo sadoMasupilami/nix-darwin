@@ -4,63 +4,14 @@
 { pkgs, ... }:
 {
   environment.systemPackages = [
-    pkgs.git
-    pkgs.awscli2
-    pkgs.yq-go
-    pkgs.jq
     pkgs.lens
-    pkgs.direnv
-    pkgs.nix-direnv
-    pkgs.argocd
-    pkgs.argo-workflows
-    # pkgs.signal-desktop # currently not working
-    pkgs.k9s
-    pkgs.eza
-    pkgs.fzf
-    pkgs.fzf-zsh
-    pkgs.zsh-fzf-tab
-    pkgs.oh-my-zsh
-    pkgs.zsh-powerlevel10k
-    pkgs.go
-    pkgs.kubectl
-    pkgs.kubernetes-helm
-    pkgs.kubectx
-    pkgs.wget
     pkgs.unixtools.watch
-    pkgs.tilt
-    pkgs.terraform
-    pkgs.terragrunt
-    pkgs.pre-commit
-    pkgs.inetutils
-    pkgs.zsh-autosuggestions
-    pkgs.zsh-syntax-highlighting
-    # pkgs.snyk # curretnly not working
     pkgs.vscode
-    pkgs.docker-client
     pkgs.docker-credential-helpers
-    pkgs.skopeo
-    pkgs.tree
     pkgs.discord
     pkgs.iterm2
     pkgs.slack
-    # kgs.telegram-desktop # currently not working
-    pkgs.nmap
-    pkgs.nix-index
-    pkgs.glab
-    pkgs.bat
-    pkgs.fd
-    pkgs.difftastic
-    #      pkgs.ghostty # currently not building remove from brew again if working
-    pkgs.azure-cli
-    pkgs.kubeswitch
-    pkgs.rar
-    pkgs.talosctl
-    pkgs.kcat
-    pkgs.openshift
     pkgs.realvnc-vnc-viewer
-    pkgs.nixd
-    pkgs.nixfmt-rfc-style
-    pkgs.uv
   ];
 
   # allow packages which are not open source e.g. terraform
@@ -144,7 +95,7 @@
       "commander-one"
       "daisydisk"
       "bartender"
-      "badgeify"
+      #"badgeify"
       "webex"
       "spotify"
       "podman-desktop"
