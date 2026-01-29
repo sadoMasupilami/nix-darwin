@@ -26,7 +26,7 @@
           ../home.nix
           {
             home.username = "michaelklug";
-            home.homeDirectory = "/Users/michaelklug";
+            home.homeDirectory = "/home/michaelklug";
           }
         ];
       };
