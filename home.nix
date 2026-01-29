@@ -25,7 +25,6 @@
     k9s
     eza
     fzf
-    fzf-zsh
     zsh-fzf-tab
     oh-my-zsh
     zsh-powerlevel10k
