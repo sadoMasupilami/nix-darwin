@@ -56,7 +56,7 @@
     kcat
     openshift
     nixd
-    nixfmt-rfc-style
+    nixfmt
     uv
   ];
 
