@@ -186,6 +186,7 @@
         paths:
         - ~/Downloads
         - ~/.kube/
+      - kind: eks
       #- kind: rancher
       #  id: rancher-internal
       #  config:

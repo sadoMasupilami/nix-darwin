@@ -100,6 +100,7 @@
       "spotify"
       "podman-desktop"
       "vlc"
+      "elgato-stream-deck"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
