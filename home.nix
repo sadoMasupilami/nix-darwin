@@ -63,16 +63,14 @@
   # git configuration see this and follwing for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
   programs.git = {
     enable = false;
-    userName = "sadomasupilami"; # TODO: CHANGEME
-    userEmail = "michiklug85@gmail.com"; # TODO: CHANGEME
-    extraConfig = {
+    settings = {
+      user = {
+        name = "sadomasupilami"; # TODO: CHANGEME
+        email = "michiklug85@gmail.com"; # TODO: CHANGEME
+      };
       github.user = "sadoMasupilami"; # TODO: CHANGEME
-      init = {
-        defaultBranch = "trunk";
-      };
-      diff = {
-        external = "${pkgs.difftastic}/bin/difft";
-      };
+      init.defaultBranch = "trunk";
+      diff.external = "${pkgs.difftastic}/bin/difft";
     };
   };
 

@@ -1,16 +1,6 @@
 {
   description = "Michaels Macos system flake";
 
-  nixConfig = {
-    extra-substituters = [
-      "https://cache.nixos.org"
-      "https://nixpkgs-unfree.cachix.org"
-    ];
-    extra-trusted-public-keys = [
-      "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
-    ];
-  };
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     # nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
