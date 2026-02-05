@@ -18,6 +18,7 @@
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
+    determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
     # Optional: Declarative tap management
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
@@ -36,6 +37,7 @@
       nixpkgs,
       home-manager,
       nix-homebrew,
+      determinate,
       homebrew-core,
       homebrew-cask,
       ...
@@ -46,6 +48,18 @@
         specialArgs = { inherit inputs; };
         modules = [
           ./darwin.nix
+          # Determinate manages /etc/nix/nix.conf and /etc/nix/nix.custom.conf
+          determinate.darwinModules.default
+          {
+            determinateNix = {
+              enable = true;
+              customSettings = {
+                substituters = "https://cache.nixos.org https://nixpkgs-unfree.cachix.org";
+                trusted-substituters = "https://cache.nixos.org https://nixpkgs-unfree.cachix.org";
+                trusted-public-keys = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
+              };
+            };
+          }
           nix-homebrew.darwinModules.nix-homebrew
           {
             nix-homebrew = {

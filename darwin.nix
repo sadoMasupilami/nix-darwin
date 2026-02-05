@@ -14,7 +14,7 @@
     pkgs.realvnc-vnc-viewer
   ];
 
-  # allow packages which are not open source e.g. terraform
+  # allow packages which are not open source
   nixpkgs.config.allowUnfree = true;
 
   # allow broken packages
