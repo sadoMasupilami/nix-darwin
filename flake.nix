@@ -2,8 +2,12 @@
   description = "Michaels Macos system flake";
 
   nixConfig = {
-    extra-substituters = [ "https://cache.flox.dev" ];
-    extra-trusted-public-keys = [ "flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs=" ];
+    extra-substituters = [
+      "https://nixpkgs-unfree.cachix.org"
+    ];
+    extra-trusted-public-keys = [
+      "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
+    ];
   };
 
   inputs = {
@@ -14,7 +18,6 @@
     home-manager.url = "github:nix-community/home-manager";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     nix-homebrew.url = "github:zhaofengli-wip/nix-homebrew";
-    flox.url = "github:flox/flox/v1.7.3";
     # Optional: Declarative tap management
     homebrew-core = {
       url = "github:homebrew/homebrew-core";
@@ -60,14 +63,8 @@
             };
             # let determinate manage the nix installation
             nix.enable = false;
-          }
-          inputs.flox.darwinModules.flox
-          ({ pkgs, ... }: {
-            environment.systemPackages = [
-              inputs.flox.packages.${pkgs.system}.default
-            ];
             nix.settings.experimental-features = [ "nix-command" "flakes" ];
-          })
+          }
           home-manager.darwinModules.home-manager
           {
             home-manager.useGlobalPkgs = true;

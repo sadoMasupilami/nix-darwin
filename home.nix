@@ -57,6 +57,7 @@
     nixd
     nixfmt
     uv
+    devenv
   ];
 
   # git configuration see this and follwing for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
