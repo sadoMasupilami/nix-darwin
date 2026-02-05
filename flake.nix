@@ -3,6 +3,7 @@
 
   nixConfig = {
     extra-substituters = [
+      "https://cache.nixos.org"
       "https://nixpkgs-unfree.cachix.org"
     ];
     extra-trusted-public-keys = [
@@ -75,8 +76,6 @@
               # Automatically migrate existing Homebrew installations
               autoMigrate = true;
             };
-            # let determinate manage the nix installation
-            nix.enable = false;
             nix.settings.experimental-features = [ "nix-command" "flakes" ];
           }
           home-manager.darwinModules.home-manager
