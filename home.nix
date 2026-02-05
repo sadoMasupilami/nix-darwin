@@ -1,4 +1,3 @@
-# user wide comnfigiuration
 {
   config,
   lib,
@@ -162,16 +161,19 @@
   # add ~/.bin to your path so you can add your own scripts
   home.sessionPath = [ "$HOME/.bin" ];
 
-  # Add this to create a Ghostty configuration file
-  home.file.".config/ghostty/config" = {
-    text = ''
-      # Ghostty configuration content goes here
-      font-family = "JetBrains Mono"
-      theme = "iTerm2 Solarized Dark"
-      window-height = 50
-      window-width = 140
-      window-inherit-working-directory = false
-    '';
+  # Raycast Teams caller: people list (NOT managed by Nix; keep it out of the repo)
+  # Create this file manually on the machine at:
+  #   ~/.config/raycast/teams-people.csv
+  # Format (CSV):
+  #   name,email,tenantId
+  # Lines starting with '#' are treated as comments. Example:
+  #   # name,email,tenantId
+  #   Jane Doe,jane.doe@company.com,aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
+
+  # Raycast: tenant-pinned Teams video call picker (Script Command)
+  home.file.".config/raycast/scripts/teams-video-call.sh" = {
+    executable = true;
+    text = builtins.readFile ./config/raycast/teams-video-call.sh;
   };
 
   # kubeswitch configuration
@@ -187,7 +189,9 @@
         - ~/Downloads
         - ~/.kube/
       - kind: eks
-      #- kind: rancher
+        config:
+          profile: fullstacks
+          region: eu-central-1
       #  id: rancher-internal
       #  config:
       #    rancherAPIAddress: https://rancher-internal.lab.cloudstacks.eu/v3
