@@ -101,6 +101,8 @@
       "podman-desktop"
       "vlc"
       "elgato-stream-deck"
+      "bambu-studio"
+      "riverside-studio"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
