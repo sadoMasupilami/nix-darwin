@@ -19,7 +19,7 @@
     jq
     direnv
     nix-direnv
-    argocd
+    #argocd
     argo-workflows
     k9s
     eza
@@ -58,6 +58,7 @@
     nixfmt
     uv
     devenv
+    istioctl
   ];
 
   # git configuration see this and follwing for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
@@ -173,42 +174,6 @@
   home.file.".config/raycast/scripts/teams-video-call.sh" = {
     executable = true;
     text = builtins.readFile ./config/raycast/teams-video-call.sh;
-  };
-
-  # kubeswitch configuration
-  home.file.".kube/switch-config.yaml" = {
-    text = ''
-      kind: SwitchConfig
-      version: v1alpha1
-      kubeconfigStores:
-      - kind: filesystem
-        kubeconfigName: "*.yaml"
-        showPrefix: true
-        paths:
-        - ~/Downloads
-        - ~/.kube/
-      - kind: eks
-        config:
-          profile: fullstacks
-          region: eu-central-1
-      #  id: rancher-internal
-      #  config:
-      #    rancherAPIAddress: https://rancher-internal.lab.cloudstacks.eu/v3
-      #    rancherToken: token-9lt57:XXXXX
-      #  cache:
-      #    kind: filesystem
-      #    config:
-      #      path: ~/.kube/cache
-      #- kind: eks
-      #  id: fullstacks-aws
-      #  config:
-      #    profile: default
-      #    region: eu-central-1
-      - kind: azure
-        id: fullstacks-azure
-        config:
-          subscriptionID: 0ac1cdf8-3f0b-400e-9059-c7f09e51be66
-    '';
   };
 
   # needed as long as ghossty config is not propagated through ncurses

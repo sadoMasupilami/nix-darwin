@@ -95,7 +95,7 @@
       "commander-one"
       "daisydisk"
       "bartender"
-      #"badgeify"
+      "badgeify"
       "webex"
       "spotify"
       "podman-desktop"
@@ -103,6 +103,9 @@
       "elgato-stream-deck"
       "bambu-studio"
       "riverside-studio"
+      "cursor"
+      "autodesk-fusion"
+      "blender"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
