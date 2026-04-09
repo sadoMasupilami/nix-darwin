@@ -200,8 +200,7 @@
     executable = true;
     text = ''
       ulimit -n 65536 2>/dev/null || true
-      sudo darwin-rebuild switch --flake ${repoDirectory}#macos
-      nix-collect-garbage
+      sudo darwin-rebuild switch --flake ${repoDirectory}#macos && nix-collect-garbage
     '';
   };
 
