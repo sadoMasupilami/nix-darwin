@@ -1,7 +1,13 @@
 # macos wide configuration
 
 # global packages to install system wide (all users)
-{ pkgs, ... }:
+{
+  pkgs,
+  username,
+  homeDirectory,
+  hostName,
+  ...
+}:
 {
   environment.systemPackages = [
     pkgs.lens
@@ -9,7 +15,6 @@
     pkgs.vscode
     pkgs.docker-credential-helpers
     pkgs.discord
-    pkgs.iterm2
     pkgs.slack
     pkgs.realvnc-vnc-viewer
   ];
@@ -23,11 +28,11 @@
   # needed because of determinate installer
   nix.enable = false;
 
-  networking.hostName = "fs-macbook-pro-m4";
-  networking.localHostName = "fs-macbook-pro-m4";
-  networking.computerName = "fs-macbook-pro-m4";
+  networking.hostName = hostName;
+  networking.localHostName = hostName;
+  networking.computerName = hostName;
 
-  users.users.michaelklug.home = "/Users/michaelklug";
+  users.users.${username}.home = homeDirectory;
 
   # Necessary for using flakes on this system.
   # manages now by determinate
@@ -47,6 +52,11 @@
 
   # enables touch id authentication in shell
   security.pam.services.sudo_local.touchIdAuth = true;
+
+  launchd.daemons.nix-daemon.serviceConfig = {
+    SoftResourceLimits.NumberOfFiles = 65536;
+    HardResourceLimits.NumberOfFiles = 65536;
+  };
 
   # The platform the configuration will be used on.
   nixpkgs.hostPlatform = "aarch64-darwin";
@@ -102,10 +112,14 @@
       "vlc"
       "elgato-stream-deck"
       "bambu-studio"
+      "bambu-connect"
+      "orcaslicer"
       "riverside-studio"
       "cursor"
       "autodesk-fusion"
       "blender"
+      "ultrastardeluxe"
+      "codex"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
@@ -116,7 +130,7 @@
     };
   };
 
-  system.primaryUser = "michaelklug";
+  system.primaryUser = username;
 
   system.defaults = {
     # hide the dock
@@ -148,7 +162,7 @@
           {
             "tile-data" = {
               "file-data" = {
-                "_CFURLString" = "/Users/michaelklug/Downloads"; # TODO: don't hardcode this
+                "_CFURLString" = "${homeDirectory}/Downloads";
                 "_CFURLStringType" = 0;
               };
               # Optional: sorting order
@@ -197,7 +211,7 @@
     # Sets the URI to open when NewWindowTarget is "Other".
     # Spaces and similar characters must be escaped.
     # If the value is invalid, Finder will open your home directory.
-    finder.NewWindowTargetPath = "file:///Users/michaelklug/Downloads";
+    finder.NewWindowTargetPath = "file://${homeDirectory}/Downloads";
     # Show path breadcrumbs in finder windows.
     # The default is false.
     finder.ShowPathbar = true;

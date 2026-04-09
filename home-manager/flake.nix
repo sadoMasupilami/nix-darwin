@@ -14,21 +14,31 @@
   outputs =
     { nixpkgs, home-manager, ... }:
     let
-      lib = nixpkgs.lib;
-      system = "x86_64-linux";
-      username = "michaelklug";
+      machineConfig = import ../machine-config.nix;
+      inherit (machineConfig)
+        username
+        ;
+      inherit (machineConfig.linux)
+        system
+        homeDirectory
+        ;
       pkgs = import nixpkgs { inherit system; };
+      hmModules = [
+        ../home.nix
+        {
+          home.username = username;
+          home.homeDirectory = homeDirectory;
+        }
+      ];
     in
     {
       homeConfigurations.${username} = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
-        modules = [
-          ../home.nix
-          {
-            home.username = "michaelklug";
-            home.homeDirectory = "/home/michaelklug";
-          }
-        ];
+        modules = hmModules;
+      };
+      homeConfigurations.default = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = hmModules;
       };
     };
 }

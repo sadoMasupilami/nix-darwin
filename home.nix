@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  repoDirectory,
   ...
 }:
 
@@ -189,7 +190,7 @@
   home.file.".bin/nix-config-update" = {
     executable = true;
     text = ''
-      cd ~/.config/nix-darwin
+      cd ${repoDirectory}
       nix flake update
     '';
   };
@@ -198,7 +199,9 @@
   home.file.".bin/nix-config-apply" = {
     executable = true;
     text = ''
-      sudo darwin-rebuild switch --flake ~/.config/nix-darwin#macos
+      ulimit -n 65536 2>/dev/null || true
+      sudo darwin-rebuild switch --flake ${repoDirectory}#macos
+      nix-collect-garbage
     '';
   };
 

@@ -33,10 +33,27 @@
       homebrew-cask,
       ...
     }:
+    let
+      machineConfig = import ./machine-config.nix;
+      inherit (machineConfig) username;
+      inherit (machineConfig.darwin)
+        homeDirectory
+        hostName
+        repoDirectory
+        ;
+    in
     {
       darwinConfigurations."macos" = nix-darwin.lib.darwinSystem {
         system = "aarch64-darwin";
-        specialArgs = { inherit inputs; };
+        specialArgs = {
+          inherit
+            inputs
+            username
+            homeDirectory
+            hostName
+            repoDirectory
+            ;
+        };
         modules = [
           ./darwin.nix
           # Determinate manages /etc/nix/nix.conf and /etc/nix/nix.custom.conf
@@ -45,9 +62,13 @@
             determinateNix = {
               enable = true;
               customSettings = {
-                substituters = "https://cache.nixos.org https://nixpkgs-unfree.cachix.org";
-                trusted-substituters = "https://cache.nixos.org https://nixpkgs-unfree.cachix.org";
-                trusted-public-keys = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
+                trusted-users = [
+                  "root"
+                  username
+                ];
+                substituters = "https://cache.nixos.org https://devenv.cachix.org https://nixpkgs-unfree.cachix.org";
+                trusted-substituters = "https://cache.nixos.org https://devenv.cachix.org https://nixpkgs-unfree.cachix.org";
+                trusted-public-keys = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
               };
             };
           }
@@ -61,7 +82,7 @@
               enableRosetta = true;
 
               # User owning the Homebrew prefix
-              user = "michaelklug";
+              user = username;
 
               # Automatically migrate existing Homebrew installations
               autoMigrate = true;
@@ -72,7 +93,15 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.users.michaelklug = import ./home.nix;
+            home-manager.extraSpecialArgs = {
+              inherit
+                username
+                homeDirectory
+                hostName
+                repoDirectory
+                ;
+            };
+            home-manager.users.${username} = import ./home.nix;
           }
         ];
       };

@@ -15,6 +15,6 @@ cd "$TARGET_DIR"
 
 # Execute the home-manager command
 export NIXPKGS_ALLOW_UNFREE=1
-home-manager switch --impure --flake .#$USER
+home-manager switch --impure --flake .#default
 
 echo "home-manager switch executed successfully."

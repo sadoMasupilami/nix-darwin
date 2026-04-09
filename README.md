@@ -1,5 +1,17 @@
-# initial install
-## first install stuff to get started
+# nix-darwin config
+
+This repo manages:
+
+- macOS system configuration via `nix-darwin`
+- Home Manager on macOS
+- a separate Linux Home Manager setup in [`home-manager/`](/Users/michaelklug/.config/nix-darwin/home-manager)
+
+Machine-specific values are centralized in [`machine-config.nix`](/Users/michaelklug/.config/nix-darwin/machine-config.nix).
+
+## First install on macOS
+
+Install the prerequisites:
+
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
@@ -9,40 +21,78 @@ sh -s -- install
 softwareupdate --install-rosetta
 ```
 
-## clone the repo
-the path has to be exactly this one
+Clone this repo to the expected path:
 
 ```bash
-mkdir -p ~/.config/
-cd ~/.config/
-git clone https://github.com/LnL7/nix-darwin.git
+mkdir -p ~/.config
+cd ~/.config
+git clone https://github.com/sadomasupilami/nix-darwin.git
 ```
 
-## apply the configuration
+Adjust the machine-specific settings in:
+
 ```bash
-sudo nix run nix-darwin -- switch --flake ~/.config/nix-darwin#macos
+~/.config/nix-darwin/machine-config.nix
 ```
 
-# updating in the future
-we have installed 2 binaries which you can use in the future to get the newest versions and install them
+This file is part of the flake, so it must stay tracked by Git.
+
+Apply the macOS configuration:
+
+```bash
+cd ~/.config/nix-darwin
+sudo darwin-rebuild switch --flake .#macos
+```
+
+## Updating on macOS
+
+After the first successful activation, Home Manager installs two helper scripts:
+
 ```bash
 nix-config-update
 nix-config-apply
 ```
 
-# where to find packages?
-https://search.nixos.org
+They currently do:
 
-# install your configuration on linux
+- `nix-config-update`: `nix flake update` in this repo
+- `nix-config-apply`: raises `ulimit -n` and runs `darwin-rebuild switch --flake <repo>#macos`
+
+## Linux Home Manager
+
+Install Nix:
+
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
-sh -s -- install```
-mkdir -p ~/.config/
-cd ~/.config/
-git clone https://github.com/LnL7/nix-darwin.git
+sh -s -- install
+```
+
+Clone the repo:
+
+```bash
+mkdir -p ~/.config
+cd ~/.config
+git clone https://github.com/sadomasupilami/nix-darwin.git
+```
+
+Adjust the Linux values in:
+
+```bash
+~/.config/nix-darwin/machine-config.nix
+```
+
+Apply Home Manager:
+
+```bash
 ~/.config/nix-darwin/home-manager/apply-home-manager.sh
 ```
 
-# manual stuff for me
-- Bartender License
-- 
+## Notes
+
+- `machine-config.nix` is the single place for username, host name, home directories, and repo path.
+- Homebrew is managed declaratively through `nix-homebrew` and the `homebrew` section in [`darwin.nix`](/Users/michaelklug/.config/nix-darwin/darwin.nix).
+- Package search: https://search.nixos.org
+
+## Manual
+
+- Bartender license
