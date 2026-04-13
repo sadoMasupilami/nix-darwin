@@ -190,8 +190,28 @@
   home.file.".bin/nix-config-update" = {
     executable = true;
     text = ''
+      set -e
+
       cd ${repoDirectory}
       nix flake update
+
+      if [ -x /opt/homebrew/bin/brew ]; then
+        BREW_BIN=/opt/homebrew/bin/brew
+      elif [ -x /usr/local/bin/brew ]; then
+        BREW_BIN=/usr/local/bin/brew
+      else
+        BREW_BIN=
+      fi
+
+      if [ -n "$BREW_BIN" ]; then
+        "$BREW_BIN" update
+        "$BREW_BIN" upgrade
+        "$BREW_BIN" upgrade --cask
+      fi
+
+      if command -v mas >/dev/null 2>&1; then
+        mas upgrade
+      fi
     '';
   };
 

@@ -12,11 +12,11 @@
   environment.systemPackages = [
     pkgs.lens
     pkgs.unixtools.watch
-    pkgs.vscode
     pkgs.docker-credential-helpers
     pkgs.discord
     pkgs.slack
     pkgs.realvnc-vnc-viewer
+    pkgs.mas
   ];
 
   # allow packages which are not open source
@@ -67,8 +67,9 @@
   # currently installed below (brew list)
   homebrew = {
     enable = true;
+    prefix = "/opt/homebrew";
     onActivation.cleanup = "zap";
-    onActivation.autoUpdate = true;
+    onActivation.autoUpdate = false;
     onActivation.upgrade = true;
     taps = [
       "azure/azd"
@@ -118,6 +119,7 @@
       "blender"
       "ultrastardeluxe"
       "codex"
+      "visual-studio-code"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
