@@ -191,6 +191,7 @@
     executable = true;
     text = ''
       set -e
+      ulimit -n 65536 2>/dev/null || true
 
       cd ${repoDirectory}
       nix flake update

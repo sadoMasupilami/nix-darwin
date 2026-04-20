@@ -22,6 +22,7 @@
         system
         homeDirectory
         ;
+      repoDirectory = machineConfig.darwin.repoDirectory;
       pkgs = import nixpkgs { inherit system; };
       hmModules = [
         ../home.nix
@@ -35,10 +36,12 @@
       homeConfigurations.${username} = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = hmModules;
+        extraSpecialArgs = { inherit repoDirectory; };
       };
       homeConfigurations.default = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = hmModules;
+        extraSpecialArgs = { inherit repoDirectory; };
       };
     };
 }

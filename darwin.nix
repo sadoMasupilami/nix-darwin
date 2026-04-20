@@ -98,6 +98,7 @@
       "steam"
       "windows-app"
       "chatgpt"
+      "claude"
       "google-chrome"
       "ghostty" # remove me after working again from the nix store
       "raycast" # remove if it works via nix pkgs

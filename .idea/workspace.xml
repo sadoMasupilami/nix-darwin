@@ -4,8 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d8650b04-af31-4ac8-9d54-8f2b26cecd3e" name="Changes" comment="fix: use Safari again">
-      <change beforePath="$PROJECT_DIR$/flake.lock" beforeDir="false" afterPath="$PROJECT_DIR$/flake.lock" afterDir="false" />
+    <list default="true" id="d8650b04-af31-4ac8-9d54-8f2b26cecd3e" name="Changes" comment="fix: only garbage collect if the update worked">
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_29_01_26,_13_28_[Changes]/shelved.patch" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_29_01_26__13_28__Changes_.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/darwin.nix" beforeDir="false" afterPath="$PROJECT_DIR$/darwin.nix" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/home.nix" beforeDir="false" afterPath="$PROJECT_DIR$/home.nix" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -23,6 +26,13 @@
     <persistenceIdMap>
       <entry key="_/Users/michaelklug/.config/nix-darwin" value="2wMat8HOG5YRcFGT7v9myibnq5f" />
     </persistenceIdMap>
+  </component>
+  <component name="CopilotUserSelectedModel">
+    <selectedModels>
+      <entry key="edit-panel" value="GPT-5 mini" />
+      <entry key="chat-panel" value="GPT-5 mini" />
+      <entry key="agent-panel" value="GPT-5 mini" />
+    </selectedModels>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -47,6 +57,7 @@
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;SHELLCHECK.PATH&quot;: &quot;/Users/michaelklug/Library/Application Support/JetBrains/IntelliJIdea2025.2/plugins/Shell Script/shellcheck&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
     &quot;last_opened_file_path&quot;: &quot;/Users/michaelklug/.config/nix-darwin&quot;,
@@ -59,6 +70,9 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   },
   &quot;keyToStringList&quot;: {
+    &quot;DatabaseDriversLRU&quot;: [
+      &quot;postgresql&quot;
+    ],
     &quot;com.intellij.ide.scratch.ScratchImplUtil$2/New Scratch File&quot;: [
       &quot;yaml&quot;,
       &quot;TEXT&quot;
@@ -79,13 +93,13 @@
     </configuration>
   </component>
   <component name="ScaScanState">
-    <option name="scaScanTmpDirName" value="aik-sca-scan-1769429081162" />
+    <option name="scaScanTmpDirName" value="aik-sca-scan-1776687667536" />
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.30387.90" />
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.30387.90" />
+        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.31033.145" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.31033.145" />
       </set>
     </attachedChunks>
   </component>
@@ -144,6 +158,34 @@
       <workItem from="1768224031540" duration="4551000" />
       <workItem from="1768289306913" duration="179000" />
       <workItem from="1769429081485" duration="778000" />
+      <workItem from="1769689691214" duration="8674000" />
+      <workItem from="1770033135826" duration="771000" />
+      <workItem from="1770056849430" duration="6717000" />
+      <workItem from="1770188252170" duration="12000" />
+      <workItem from="1770215215875" duration="13542000" />
+      <workItem from="1770620798984" duration="2382000" />
+      <workItem from="1770726972145" duration="756000" />
+      <workItem from="1771226580232" duration="612000" />
+      <workItem from="1771412658632" duration="644000" />
+      <workItem from="1771420847892" duration="6134000" />
+      <workItem from="1772112671831" duration="1800000" />
+      <workItem from="1772437923304" duration="800000" />
+      <workItem from="1772447238235" duration="6133000" />
+      <workItem from="1772778723133" duration="4000" />
+      <workItem from="1773579699748" duration="8464000" />
+      <workItem from="1773837234421" duration="1388000" />
+      <workItem from="1773932769285" duration="1518000" />
+      <workItem from="1774256702835" duration="1249000" />
+      <workItem from="1774894404805" duration="504000" />
+      <workItem from="1774899185932" duration="684000" />
+      <workItem from="1775025208079" duration="1874000" />
+      <workItem from="1775715781357" duration="5255000" />
+      <workItem from="1775725158339" duration="1471000" />
+      <workItem from="1775823830882" duration="601000" />
+      <workItem from="1775976011963" duration="5547000" />
+      <workItem from="1776320953030" duration="623000" />
+      <workItem from="1776363801078" duration="1494000" />
+      <workItem from="1776687667381" duration="751000" />
     </task>
     <task id="LOCAL-00001" summary="fix: added needed mas">
       <option name="closed" value="true" />
@@ -321,21 +363,102 @@
       <option name="project" value="LOCAL" />
       <updated>1763975444437</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="fix: update">
+      <option name="closed" value="true" />
+      <created>1770058492817</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1770058492817</updated>
+    </task>
+    <task id="LOCAL-00024" summary="feat: video calling by csv">
+      <option name="closed" value="true" />
+      <created>1770284151133</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1770284151133</updated>
+    </task>
+    <task id="LOCAL-00025" summary="feat: add cachix unfree caching and removed flox">
+      <option name="closed" value="true" />
+      <created>1770300503704</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1770300503704</updated>
+    </task>
+    <task id="LOCAL-00026" summary="fix: manage determinate via nix :D">
+      <option name="closed" value="true" />
+      <created>1770302365046</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1770302365046</updated>
+    </task>
+    <task id="LOCAL-00027" summary="fix: tidy up">
+      <option name="closed" value="true" />
+      <created>1770302800418</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1770302800418</updated>
+    </task>
+    <task id="LOCAL-00028" summary="fix: warnings and unnecessary config">
+      <option name="closed" value="true" />
+      <created>1770303068663</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1770303068663</updated>
+    </task>
+    <task id="LOCAL-00029" summary="fix: add tools">
+      <option name="closed" value="true" />
+      <created>1770729686473</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1770729686473</updated>
+    </task>
+    <task id="LOCAL-00030" summary="fix: update and delete switch config">
+      <option name="closed" value="true" />
+      <created>1773837326663</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1773837326663</updated>
+    </task>
+    <task id="LOCAL-00031" summary="feat: central variable configuration">
+      <option name="closed" value="true" />
+      <created>1775722375608</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1775722375608</updated>
+    </task>
+    <task id="LOCAL-00032" summary="fix: remove unnecessary applications from configuration">
+      <option name="closed" value="true" />
+      <created>1775724628247</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1775724628247</updated>
+    </task>
+    <task id="LOCAL-00033" summary="fix: only garbage collect if the update worked">
+      <option name="closed" value="true" />
+      <created>1775724964256</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1775724964256</updated>
+    </task>
+    <option name="localTasksCounter" value="34" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="fix: added needed mas" />
-    <MESSAGE value="fix: changed to new initContent option" />
-    <MESSAGE value="fix: added harvester and webex" />
-    <MESSAGE value="fix: dock size" />
-    <MESSAGE value="fix: some apps" />
-    <MESSAGE value="fix: adaptions to newest Version" />
     <MESSAGE value="fix: auto suggestions now seeable in my ghosty color scheme" />
-    <MESSAGE value="fix: update" />
     <MESSAGE value="fix: add git" />
     <MESSAGE value="fix: newest version needs root" />
     <MESSAGE value="fix: add openshift" />
@@ -349,7 +472,18 @@
     <MESSAGE value="fix: remove harvest" />
     <MESSAGE value="fix: update everything" />
     <MESSAGE value="fix: use Safari again" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: use Safari again" />
+    <MESSAGE value="fix: update" />
+    <MESSAGE value="feat: video calling by csv" />
+    <MESSAGE value="feat: add cachix unfree caching and removed flox" />
+    <MESSAGE value="fix: manage determinate via nix :D" />
+    <MESSAGE value="fix: tidy up" />
+    <MESSAGE value="fix: warnings and unnecessary config" />
+    <MESSAGE value="fix: add tools" />
+    <MESSAGE value="fix: update and delete switch config" />
+    <MESSAGE value="feat: central variable configuration" />
+    <MESSAGE value="fix: remove unnecessary applications from configuration" />
+    <MESSAGE value="fix: only garbage collect if the update worked" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: only garbage collect if the update worked" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
