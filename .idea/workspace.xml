@@ -5,10 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d8650b04-af31-4ac8-9d54-8f2b26cecd3e" name="Changes" comment="fix: only garbage collect if the update worked">
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_29_01_26,_13_28_[Changes]/shelved.patch" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_29_01_26__13_28__Changes_.xml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/darwin.nix" beforeDir="false" afterPath="$PROJECT_DIR$/darwin.nix" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/home.nix" beforeDir="false" afterPath="$PROJECT_DIR$/home.nix" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -20,6 +17,24 @@
     <option name="groupingKeys">
       <option value="directory" />
       <option value="repository" />
+    </option>
+  </component>
+  <component name="CopilotChats">
+    <option name="panelChat">
+      <chat>
+        <option name="activeSessionId" value="f169c3c8-a4f8-4cf4-8f8b-10076a019fa9" />
+        <option name="sessions">
+          <session>
+            <option name="chatType" value="PANEL" />
+            <option name="id" value="f169c3c8-a4f8-4cf4-8f8b-10076a019fa9" />
+            <option name="modeId" value="Ask" />
+            <option name="modelType" value="builtin_family" />
+            <option name="modelValue" value="auto" />
+            <option name="targetType" value="LOCAL" />
+          </session>
+        </option>
+        <option name="type" value="PANEL" />
+      </chat>
     </option>
   </component>
   <component name="CopilotPersistence">
@@ -54,6 +69,7 @@
   &quot;keyToString&quot;: {
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
     &quot;SHELLCHECK.PATH&quot;: &quot;/Users/michaelklug/Library/Application Support/JetBrains/IntelliJIdea2025.2/plugins/Shell Script/shellcheck&quot;,
@@ -79,27 +95,14 @@
     ]
   }
 }</component>
-  <component name="RunManager">
-    <configuration default="true" type="JetRunConfigurationType">
-      <module name="nix-darwin" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
-      <module name="nix-darwin" />
-      <option name="filePath" />
-      <method v="2" />
-    </configuration>
-  </component>
   <component name="ScaScanState">
-    <option name="scaScanTmpDirName" value="aik-sca-scan-1776687667536" />
+    <option name="scaScanTmpDirName" value="aik-sca-scan-1779343793826" />
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-30f59d01ecdd-2fc7cc6b9a17-intellij.indexing.shared.core-IU-253.31033.145" />
-        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-IU-253.31033.145" />
+        <option value="bundled-jdk-30f59d01ecdd-37e91769500f-intellij.indexing.shared.core-IU-261.24374.151" />
+        <option value="bundled-js-predefined-d6986cc7102b-31caf2ab9e3c-JavaScript-IU-261.24374.151" />
       </set>
     </attachedChunks>
   </component>
@@ -186,6 +189,12 @@
       <workItem from="1776320953030" duration="623000" />
       <workItem from="1776363801078" duration="1494000" />
       <workItem from="1776687667381" duration="751000" />
+      <workItem from="1776846047442" duration="2295000" />
+      <workItem from="1776972776612" duration="551000" />
+      <workItem from="1777450880139" duration="2586000" />
+      <workItem from="1777833439168" duration="758000" />
+      <workItem from="1779343728965" duration="1293000" />
+      <workItem from="1779881012880" duration="4881000" />
     </task>
     <task id="LOCAL-00001" summary="fix: added needed mas">
       <option name="closed" value="true" />
