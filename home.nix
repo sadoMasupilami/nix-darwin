@@ -6,8 +6,12 @@
   ...
 }:
 
+let
+  isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
+  isLinux = pkgs.stdenv.hostPlatform.isLinux;
+in
 {
-  # basically never chnage this
+  # basically never change this
   home.stateVersion = "23.11";
 
   # packages only installed for your user
@@ -64,21 +68,21 @@
     kind
   ];
 
-  # git configuration see this and follwing for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
+  # git configuration see this and following for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
   programs.git = {
-    enable = false;
+    enable = true;
     settings = {
       user = {
-        name = "sadomasupilami"; # TODO: CHANGEME
-        email = "michiklug85@gmail.com"; # TODO: CHANGEME
+        name = "sadomasupilami";
+        email = "michiklug85@gmail.com";
       };
-      github.user = "sadoMasupilami"; # TODO: CHANGEME
+      github.user = "sadoMasupilami";
       init.defaultBranch = "trunk";
       diff.external = "${pkgs.difftastic}/bin/difft";
     };
   };
 
-  # in depth zsh configuration see this and follwing for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.zsh.enable)
+  # in depth zsh configuration see this and following for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.zsh.enable)
   programs.zsh = {
     enable = true;
     enableCompletion = true;
@@ -174,12 +178,12 @@
   #   Jane Doe,jane.doe@company.com,aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
 
   # Raycast: tenant-pinned Teams video call picker (Script Command)
-  home.file.".config/raycast/scripts/teams-video-call.sh" = {
+  home.file.".config/raycast/scripts/teams-video-call.sh" = lib.mkIf isDarwin {
     executable = true;
     text = builtins.readFile ./config/raycast/teams-video-call.sh;
   };
 
-  # needed as long as ghossty config is not propagated through ncurses
+  # needed as long as ghostty config is not propagated through ncurses
   home.file.".ssh/config" = {
     text = ''
       Host *
@@ -191,40 +195,72 @@
   # update nix config
   home.file.".bin/nix-config-update" = {
     executable = true;
-    text = ''
-      set -e
-      ulimit -n 65536 2>/dev/null || true
+    text =
+      if isDarwin then
+        ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ulimit -n 65536 2>/dev/null || true
 
-      cd ${repoDirectory}
-      nix flake update
+          cd "${repoDirectory}"
+          nix flake update
 
-      if [ -x /opt/homebrew/bin/brew ]; then
-        BREW_BIN=/opt/homebrew/bin/brew
-      elif [ -x /usr/local/bin/brew ]; then
-        BREW_BIN=/usr/local/bin/brew
+          if [ -x /opt/homebrew/bin/brew ]; then
+            BREW_BIN=/opt/homebrew/bin/brew
+          elif [ -x /usr/local/bin/brew ]; then
+            BREW_BIN=/usr/local/bin/brew
+          else
+            BREW_BIN=
+          fi
+
+          if [ -n "$BREW_BIN" ]; then
+            "$BREW_BIN" update
+            "$BREW_BIN" upgrade
+            "$BREW_BIN" upgrade --cask
+          fi
+
+          if command -v mas >/dev/null 2>&1; then
+            mas upgrade
+          fi
+        ''
+      else if isLinux then
+        ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ulimit -n 65536 2>/dev/null || true
+
+          cd "${repoDirectory}/home-manager"
+          nix flake update
+        ''
       else
-        BREW_BIN=
-      fi
-
-      if [ -n "$BREW_BIN" ]; then
-        "$BREW_BIN" update
-        "$BREW_BIN" upgrade
-        "$BREW_BIN" upgrade --cask
-      fi
-
-      if command -v mas >/dev/null 2>&1; then
-        mas upgrade
-      fi
-    '';
+        throw "Unsupported platform for nix-config-update";
   };
 
   # apply nix config
   home.file.".bin/nix-config-apply" = {
     executable = true;
-    text = ''
-      ulimit -n 65536 2>/dev/null || true
-      sudo darwin-rebuild switch --flake ${repoDirectory}#macos && nix-collect-garbage
-    '';
+    text =
+      if isDarwin then
+        ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ulimit -n 65536 2>/dev/null || true
+
+          sudo darwin-rebuild switch --flake "${repoDirectory}#macos"
+          nix-collect-garbage
+        ''
+      else if isLinux then
+        ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+          ulimit -n 65536 2>/dev/null || true
+
+          cd "${repoDirectory}/home-manager"
+          nix shell nixpkgs#home-manager -c home-manager switch --flake .#default
+          nix-collect-garbage
+        ''
+      else
+        throw "Unsupported platform for nix-config-apply";
   };
 
   #  # helm repos

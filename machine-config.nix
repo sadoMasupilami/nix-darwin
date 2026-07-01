@@ -10,5 +10,6 @@
   linux = {
     system = "x86_64-linux";
     homeDirectory = "/home/michaelklug";
+    repoDirectory = "/home/michaelklug/.config/nix-darwin";
   };
 }

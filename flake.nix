@@ -23,7 +23,6 @@
 
   outputs =
     inputs@{
-      self,
       nix-darwin,
       nixpkgs,
       home-manager,
@@ -34,6 +33,8 @@
       ...
     }:
     let
+      system = "aarch64-darwin";
+      pkgs = import nixpkgs { inherit system; };
       machineConfig = import ./machine-config.nix;
       inherit (machineConfig) username;
       inherit (machineConfig.darwin)
@@ -44,7 +45,7 @@
     in
     {
       darwinConfigurations."macos" = nix-darwin.lib.darwinSystem {
-        system = "aarch64-darwin";
+        inherit system;
         specialArgs = {
           inherit
             inputs
@@ -86,8 +87,16 @@
 
               # Automatically migrate existing Homebrew installations
               autoMigrate = true;
+
+              taps = {
+                "homebrew/homebrew-core" = homebrew-core;
+                "homebrew/homebrew-cask" = homebrew-cask;
+              };
             };
-            nix.settings.experimental-features = [ "nix-command" "flakes" ];
+            nix.settings.experimental-features = [
+              "nix-command"
+              "flakes"
+            ];
           }
           home-manager.darwinModules.home-manager
           {
@@ -105,6 +114,28 @@
           }
         ];
       };
-      darwinPackages = self.darwinConfigurations."macos".pkgs;
+
+      formatter.${system} = pkgs.writeShellApplication {
+        name = "nix-darwin-fmt";
+        runtimeInputs = [
+          pkgs.fd
+          pkgs.nixfmt
+        ];
+        text = ''
+          has_path=false
+          for arg in "$@"; do
+            case "$arg" in
+              -*) ;;
+              *) has_path=true ;;
+            esac
+          done
+
+          if [ "$#" -gt 0 ] && [ "$has_path" = true ]; then
+            exec nixfmt "$@"
+          fi
+
+          fd --extension nix --type f --exec-batch nixfmt "$@" {}
+        '';
+      };
     };
 }

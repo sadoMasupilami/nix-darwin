@@ -53,10 +53,10 @@ nix-config-update
 nix-config-apply
 ```
 
-They currently do:
+On macOS they currently do:
 
-- `nix-config-update`: `nix flake update` in this repo
-- `nix-config-apply`: raises `ulimit -n` and runs `darwin-rebuild switch --flake <repo>#macos`
+- `nix-config-update`: updates the main flake, Homebrew, casks, and App Store apps
+- `nix-config-apply`: raises `ulimit -n`, runs `darwin-rebuild switch --flake <repo>#macos`, and collects garbage
 
 ## Linux Home Manager
 
@@ -86,6 +86,11 @@ Apply Home Manager:
 ```bash
 ~/.config/nix-darwin/home-manager/apply-home-manager.sh
 ```
+
+After the first successful activation, the same helper names are installed for Linux:
+
+- `nix-config-update`: updates the `home-manager/` flake
+- `nix-config-apply`: runs `home-manager switch --flake .#default` from `home-manager/` and collects garbage
 
 ## Notes
 

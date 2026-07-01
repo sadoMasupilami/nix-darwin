@@ -14,7 +14,6 @@
     pkgs.unixtools.watch
     pkgs.docker-credential-helpers
     pkgs.discord
-    pkgs.slack
     pkgs.realvnc-vnc-viewer
     pkgs.mas
   ];
@@ -72,7 +71,10 @@
     onActivation.autoUpdate = false;
     onActivation.upgrade = true;
     taps = [
-      "azure/azd"
+      {
+        name = "azure/azd";
+        trusted = true;
+      }
     ];
     brews = [
       "docker-credential-helper"
@@ -120,6 +122,7 @@
       "blender"
       "ultrastardeluxe"
       "codex"
+      "codex-app"
       "visual-studio-code"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers

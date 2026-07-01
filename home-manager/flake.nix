@@ -21,9 +21,12 @@
       inherit (machineConfig.linux)
         system
         homeDirectory
+        repoDirectory
         ;
-      repoDirectory = machineConfig.darwin.repoDirectory;
-      pkgs = import nixpkgs { inherit system; };
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
       hmModules = [
         ../home.nix
         {
