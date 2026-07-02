@@ -55,8 +55,8 @@ nix-config-apply
 
 On macOS they currently do:
 
-- `nix-config-update`: updates the main flake, Homebrew, casks, and App Store apps
-- `nix-config-apply`: raises `ulimit -n`, runs `darwin-rebuild switch --flake <repo>#macos`, and collects garbage
+- `nix-config-update`: updates the main flake, including the nix-homebrew-managed Homebrew taps, and upgrades App Store apps
+- `nix-config-apply`: raises `ulimit -n`, runs `darwin-rebuild switch --flake <repo>#macos`, applies Homebrew changes, and collects garbage
 
 ## Linux Home Manager
 

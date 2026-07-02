@@ -10,11 +10,8 @@
 }:
 {
   environment.systemPackages = [
-    pkgs.lens
     pkgs.unixtools.watch
     pkgs.docker-credential-helpers
-    pkgs.discord
-    pkgs.realvnc-vnc-viewer
     pkgs.mas
   ];
 
@@ -83,18 +80,13 @@
     ];
     casks = [
       "1password"
-      "roon"
       "microsoft-office"
       "microsoft-auto-update"
       "microsoft-teams"
-      "devpod"
       "jetbrains-toolbox"
-      "obs"
       "sony-ps-remote-play"
-      "qobuz"
       "rancher"
       "telegram"
-      "tidal"
       "whatsapp"
       "wifiman"
       "steam"
@@ -102,8 +94,8 @@
       "chatgpt"
       "claude"
       "google-chrome"
-      "ghostty" # remove me after working again from the nix store
-      "raycast" # remove if it works via nix pkgs
+      "ghostty"
+      "raycast"
       "brave-browser"
       "commander-one"
       "daisydisk"
@@ -111,7 +103,6 @@
       "badgeify"
       "webex"
       "spotify"
-      "podman-desktop"
       "vlc"
       "elgato-stream-deck"
       "elgato-control-center"

@@ -205,19 +205,8 @@ in
           cd "${repoDirectory}"
           nix flake update
 
-          if [ -x /opt/homebrew/bin/brew ]; then
-            BREW_BIN=/opt/homebrew/bin/brew
-          elif [ -x /usr/local/bin/brew ]; then
-            BREW_BIN=/usr/local/bin/brew
-          else
-            BREW_BIN=
-          fi
-
-          if [ -n "$BREW_BIN" ]; then
-            "$BREW_BIN" update
-            "$BREW_BIN" upgrade
-            "$BREW_BIN" upgrade --cask
-          fi
+          # Homebrew core/cask taps are nix-homebrew flake inputs. Updating them
+          # happens above; applying them happens during darwin-rebuild activation.
 
           if command -v mas >/dev/null 2>&1; then
             mas upgrade
