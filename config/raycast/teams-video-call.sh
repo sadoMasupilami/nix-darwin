@@ -5,7 +5,7 @@
 # @raycast.title Teams: Video Call (Select Person + Tenant)
 # @raycast.mode silent
 # @raycast.packageName Teams
-# @raycast.description Pick a person from CSV (supports multiple tenants), open tenant-pinned chat, then start a video call
+# @raycast.description Pick a person from CSV (supports multiple tenants), then open a Teams video call
 # @raycast.shellPath /usr/bin/env bash
 # Optional: type part of a first/last name (or email) to filter the list
 # @raycast.argument1 { "type": "text", "placeholder": "Search (name or email)", "optional": true }
@@ -14,14 +14,33 @@ set -euo pipefail
 
 # Log stdout/stderr so Raycast "Process tried to run but failed" is diagnosable
 LOG_FILE="/tmp/raycast-teams-video-call.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
+if [[ "${TEAMS_CALL_NO_LOG:-0}" != "1" ]]; then
+  exec > >(tee -a "$LOG_FILE") 2>&1
+fi
 
 echo "--- $(date) ---"
 
-CSV_FILE="$HOME/.config/raycast/teams-people.csv"
+CSV_FILE="${TEAMS_PEOPLE_CSV:-$HOME/.config/raycast/teams-people.csv}"
 QUERY="${1:-}"
 
-if [[ ! -f "$CSV_FILE" ]]; then
+urlencode() {
+  local value="$1"
+  local encoded=""
+  local character
+  local i
+
+  for ((i = 0; i < ${#value}; i++)); do
+    character="${value:i:1}"
+    case "$character" in
+      [a-zA-Z0-9.~_-]) encoded+="$character" ;;
+      *) printf -v character '%%%02X' "'$character"; encoded+="$character" ;;
+    esac
+  done
+
+  printf '%s' "$encoded"
+}
+
+if [[ ! -r "$CSV_FILE" ]]; then
   echo "Missing CSV: $CSV_FILE"
   echo "Create it with lines like: name,email,tenantId"
   exit 1
@@ -110,19 +129,16 @@ if [[ -z "$EMAIL" || -z "$TENANT_ID" || "$LEFT" == "$CHOICE" || "$TENANT_ID" == 
   exit 1
 fi
 
-# Open chat in the selected tenant
-open "msteams://teams.microsoft.com/l/chat/0/0?tenantId=${TENANT_ID}&users=${EMAIL}"
+# Start the video call through Teams' supported call deep link. This avoids the
+# race between loading a chat and sending a keyboard shortcut to the Teams UI.
+EMAIL_ENCODED=$(urlencode "$EMAIL")
+TENANT_ID_ENCODED=$(urlencode "$TENANT_ID")
+CALL_URL="msteams://teams.microsoft.com/l/call/0/0?users=${EMAIL_ENCODED}&withVideo=true&tenantId=${TENANT_ID_ENCODED}&source=raycast"
 
-# Give Teams time to activate and load the chat
-sleep 1.2
+if [[ "${TEAMS_CALL_DRY_RUN:-0}" == "1" ]]; then
+  echo "Would open: ${CALL_URL}"
+else
+  open "$CALL_URL"
+fi
 
-# Start video call via keyboard shortcut (adjust if your Teams shortcut differs)
-osascript <<'APPLESCRIPT'
-tell application "Microsoft Teams" to activate
-delay 0.3
-tell application "System Events"
-  keystroke "s" using {command down, shift down}
-end tell
-APPLESCRIPT
-
-echo "Calling ${NAME}"
+echo "Opening video call with ${NAME}"

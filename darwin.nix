@@ -68,6 +68,14 @@
     onActivation.autoUpdate = false;
     onActivation.upgrade = true;
     taps = [
+      # These taps are provided by nix-homebrew below, but must also be listed
+      # in the Brewfile so `brew bundle --cleanup` does not try to untap them.
+      {
+        name = "homebrew/core";
+      }
+      {
+        name = "homebrew/cask";
+      }
       {
         name = "azure/azd";
         trusted = true;
