@@ -80,11 +80,16 @@
         name = "azure/azd";
         trusted = true;
       }
+      {
+        name = "silverstein/tap";
+        trusted = true;
+      }
     ];
     brews = [
       "docker-credential-helper"
       "mas"
       "azd"
+      "silverstein/tap/minutes"
     ];
     casks = [
       "1password"
@@ -123,6 +128,7 @@
       "codex-app"
       "visual-studio-code"
       "slack"
+      "tigervnc"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
@@ -130,6 +136,7 @@
     masApps = {
       "Goodnotes" = 1444383602;
       "1Password-Safari" = 1569813296;
+      "WireGuard" = 1451685025;
     };
   };
 
