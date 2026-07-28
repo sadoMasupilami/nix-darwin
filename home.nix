@@ -11,6 +11,8 @@ let
   isLinux = pkgs.stdenv.hostPlatform.isLinux;
 in
 {
+  imports = [ ./minutes.nix ];
+
   # basically never change this
   home.stateVersion = "23.11";
 
