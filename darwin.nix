@@ -80,16 +80,11 @@
         name = "azure/azd";
         trusted = true;
       }
-      {
-        name = "silverstein/tap";
-        trusted = true;
-      }
     ];
     brews = [
       "docker-credential-helper"
       "mas"
       "azd"
-      "silverstein/tap/minutes"
     ];
     casks = [
       "1password"

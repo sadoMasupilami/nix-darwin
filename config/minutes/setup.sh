@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-minutes_bin=/opt/homebrew/bin/minutes
+minutes_bin="@minutes@"
 if [[ ! -x "$minutes_bin" ]]; then
   echo "Minutes is not installed yet; run nix-config-apply first." >&2
   exit 1

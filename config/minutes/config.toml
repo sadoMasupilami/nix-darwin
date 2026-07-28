@@ -1,5 +1,10 @@
 output_dir = "@homeDirectory@/meetings"
 
+[recording]
+# `minutes record` remains microphone-only. The Nix-managed `minutes-call`
+# helper adds voice=default and call=auto for native dual-source call capture.
+capture_backend = "core-audio-tap"
+
 [identity]
 name = "Michael Klug"
 
@@ -7,7 +12,9 @@ name = "Michael Klug"
 engine = "whisper"
 model = "large-v3"
 vad_model = "silero-v6.2.0"
-vad_engine = "whisper-silero"
+# Streaming ORT-Silero is O(new audio). whisper-Silero rescans its full rolling
+# buffer for every CoreAudio callback and fell to ~0.68x realtime on this Mac.
+vad_engine = "ort-silero"
 partial_max_secs = 30
 
 [diarization]
