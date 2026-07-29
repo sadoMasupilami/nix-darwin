@@ -70,6 +70,17 @@
                 substituters = "https://cache.nixos.org https://devenv.cachix.org https://nixpkgs-unfree.cachix.org";
                 trusted-substituters = "https://cache.nixos.org https://devenv.cachix.org https://nixpkgs-unfree.cachix.org";
                 trusted-public-keys = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
+                # FluidAudio requires Swift 6 and current Core ML APIs while
+                # this nixpkgs revision still ships Swift 5.10. Permit only
+                # Apple's version-checked Command Line Tools for that build.
+                allowed-impure-host-deps = [
+                  # Preserve the active Determinate/Nix Darwin allow-list.
+                  "/System/Library"
+                  "/bin/sh"
+                  "/dev"
+                  "/usr/lib"
+                  "/Library/Developer/CommandLineTools"
+                ];
               };
             };
           }
