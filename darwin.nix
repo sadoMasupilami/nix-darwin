@@ -54,6 +54,9 @@
     HardResourceLimits.NumberOfFiles = 65536;
   };
 
+  # Minutes is launched by macOS and does not inherit the interactive shell PATH.
+  launchd.user.envVariables.MINUTES_FFMPEG = "/etc/profiles/per-user/${username}/bin/ffmpeg";
+
   # The platform the configuration will be used on.
   nixpkgs.hostPlatform = "aarch64-darwin";
 
@@ -80,18 +83,22 @@
         name = "azure/azd";
         trusted = true;
       }
+      {
+        name = "silverstein/tap";
+        trusted = true;
+      }
     ];
     brews = [
       "docker-credential-helper"
       "mas"
       "azd"
+      "ollama"
     ];
     casks = [
       "1password"
       "microsoft-office"
       "microsoft-auto-update"
       "microsoft-teams"
-      "jetbrains-toolbox"
       "sony-ps-remote-play"
       "rancher"
       "telegram"
@@ -121,9 +128,11 @@
       "ultrastardeluxe"
       "codex"
       "codex-app"
+      "silverstein/tap/minutes"
       "visual-studio-code"
       "slack"
       "tigervnc"
+      "ollamac"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>
@@ -161,6 +170,11 @@
     ];
     # sadly need to use CustomUserPreferences at the moment because you can not configure fan etc. here
     CustomUserPreferences = {
+      # Disable opening Games/Arcade when long-pressing the controller Home/PS button.
+      "com.apple.GameController" = {
+        bluetoothPrefsMenuLongPressAction = 0;
+      };
+
       # Sets Downloads folder with fan view in Dock
       "com.apple.dock" = {
         persistent-others = [

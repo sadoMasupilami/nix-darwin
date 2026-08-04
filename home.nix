@@ -11,8 +11,6 @@ let
   isLinux = pkgs.stdenv.hostPlatform.isLinux;
 in
 {
-  imports = [ ./minutes.nix ];
-
   # basically never change this
   home.stateVersion = "23.11";
 
@@ -68,6 +66,7 @@ in
     istioctl
     dive
     kind
+    ffmpeg
   ];
 
   # git configuration see this and following for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
