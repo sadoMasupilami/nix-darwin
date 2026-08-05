@@ -133,6 +133,7 @@
       "slack"
       "tigervnc"
       "ollamac"
+      "muesli"
     ];
     # apps from the apple app store. use cli tool mas to search the numbers
     # mas search <app name>

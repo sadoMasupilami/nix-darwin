@@ -92,6 +92,32 @@ After the first successful activation, the same helper names are installed for L
 - `nix-config-update`: updates the `home-manager/` flake
 - `nix-config-apply`: runs `home-manager switch --flake .#default` from `home-manager/` and collects garbage
 
+## Local meeting transcription on macOS
+
+The macOS Home Manager configuration installs a `qwen-meeting` wrapper for
+local transcription with Qwen3-ASR-1.7B. After applying the configuration,
+install its pinned Python environment once:
+
+```bash
+qwen-meeting-setup
+```
+
+This explicit setup command downloads Python dependencies from PyPI. The first
+transcription also downloads the model weights. Normal Nix/Home Manager
+activations do not perform either network download.
+
+Transcribe a recording with automatic German/English detection:
+
+```bash
+qwen-meeting "/full/path/to/recording.m4a"
+```
+
+Use `de` or `en` as an optional second argument to force a language. Results in
+TXT, JSON, SRT, VTT, and TSV format are written below
+`~/Documents/Muesli-Transcripts/`; the TXT result is copied to the clipboard.
+The managed vocabulary is in
+[`config/qwen-meeting/context.txt`](/Users/michaelklug/.config/nix-darwin/config/qwen-meeting/context.txt).
+
 ## Notes
 
 - `machine-config.nix` is the single place for username, host name, home directories, and repo path.

@@ -1,0 +1,49 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+VENV="$HOME/.venvs/qwen3-asr"
+PACKAGE="${QWEN_MEETING_PACKAGE:-mlx-qwen3-asr[aligner]==0.3.5}"
+NIX_USER_BIN="/etc/profiles/per-user/$(/usr/bin/id -un)/bin"
+
+export PATH="$NIX_USER_BIN:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+
+if [[ "$(uname -s)" != Darwin || "$(uname -m)" != arm64 ]]; then
+  echo "Fehler: mlx-qwen3-asr benötigt einen Apple-Silicon-Mac." >&2
+  exit 1
+fi
+
+UV="$(command -v uv || true)"
+PYTHON="$(command -v python3.13 || true)"
+
+if [[ -z "$UV" ]]; then
+  echo "Fehler: uv fehlt. Bitte zuerst die Nix-Darwin-Konfiguration anwenden." >&2
+  exit 2
+fi
+
+if [[ -z "$PYTHON" ]]; then
+  echo "Fehler: Python 3.13 fehlt. Bitte zuerst die Nix-Darwin-Konfiguration anwenden." >&2
+  exit 3
+fi
+
+if [[ -e "$VENV" && ! -f "$VENV/pyvenv.cfg" ]]; then
+  echo "Fehler: $VENV existiert, ist aber keine virtuelle Python-Umgebung." >&2
+  echo "Der Pfad wurde aus Sicherheitsgründen nicht verändert." >&2
+  exit 4
+fi
+
+mkdir -p "${VENV:h}"
+
+echo "Erstelle die dedizierte Python-Umgebung: $VENV"
+"$UV" venv --clear --no-managed-python --python "$PYTHON" "$VENV"
+
+echo "Installiere $PACKAGE"
+"$UV" pip install --python "$VENV/bin/python" --upgrade --strict "$PACKAGE"
+
+echo
+"$VENV/bin/mlx-qwen3-asr" --doctor
+
+echo
+echo "Qwen3-ASR ist eingerichtet."
+echo "Beim ersten Transkriptionslauf werden die Modellgewichte heruntergeladen."
+echo "Beispiel: qwen-meeting \"/Pfad/zur/Aufnahme.m4a\""

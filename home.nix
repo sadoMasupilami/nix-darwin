@@ -67,6 +67,8 @@ in
     dive
     kind
     ffmpeg
+  ] ++ lib.optionals isDarwin [
+    python313
   ];
 
   # git configuration see this and following for options(https://nix-community.github.io/home-manager/options.xhtml#opt-programs.git.enable)
@@ -168,6 +170,23 @@ in
 
   # add ~/.bin to your path so you can add your own scripts
   home.sessionPath = [ "$HOME/.bin" ];
+
+  # Local Qwen3-ASR meeting transcription. The Python environment and model
+  # weights are intentionally installed on demand by qwen-meeting-setup so a
+  # regular Home Manager activation never performs an implicit network fetch.
+  home.file.".bin/qwen-meeting" = lib.mkIf isDarwin {
+    executable = true;
+    source = ./config/qwen-meeting/qwen-meeting;
+  };
+
+  home.file.".bin/qwen-meeting-setup" = lib.mkIf isDarwin {
+    executable = true;
+    source = ./config/qwen-meeting/qwen-meeting-setup;
+  };
+
+  home.file.".config/qwen-meeting/context.txt" = lib.mkIf isDarwin {
+    source = ./config/qwen-meeting/context.txt;
+  };
 
   # Raycast Teams caller: people list (NOT managed by Nix; keep it out of the repo)
   # Create this file manually on the machine at:

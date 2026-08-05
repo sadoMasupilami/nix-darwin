@@ -1,0 +1,143 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+ASR="${QWEN_MEETING_ASR:-$HOME/.venvs/qwen3-asr/bin/mlx-qwen3-asr}"
+MODEL="${QWEN_MEETING_MODEL:-Qwen/Qwen3-ASR-1.7B}"
+CONTEXT_FILE="${QWEN_MEETING_CONTEXT:-${XDG_CONFIG_HOME:-$HOME/.config}/qwen-meeting/context.txt}"
+OUTPUT_ROOT="${QWEN_MEETING_OUTPUT_ROOT:-$HOME/Documents/Muesli-Transcripts}"
+NIX_USER_BIN="/etc/profiles/per-user/$(/usr/bin/id -un)/bin"
+
+# Keep ffmpeg and the other Nix-managed command-line tools visible even when
+# this wrapper is started outside an interactive shell.
+export PATH="$NIX_USER_BIN:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+
+show_usage() {
+  cat <<'USAGE'
+Verwendung:
+
+  qwen-meeting "/Pfad/meeting.m4a"
+  qwen-meeting "/Pfad/meeting.m4a" auto
+  qwen-meeting "/Pfad/meeting.m4a" de
+  qwen-meeting "/Pfad/meeting.m4a" en
+
+Sprachmodi:
+
+  auto    Deutsch/Englisch automatisch erkennen
+  de      überwiegend deutsches Meeting
+  en      englisches Meeting
+
+Für österreichisches Deutsch mit englischen IT-Begriffen wird "auto" empfohlen.
+USAGE
+}
+
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+  show_usage
+  exit 1
+fi
+
+INPUT="$1"
+LANGUAGE_MODE="${2:-auto}"
+
+if [[ ! -f "$INPUT" ]]; then
+  echo "Fehler: Datei wurde nicht gefunden:" >&2
+  echo "$INPUT" >&2
+  exit 2
+fi
+
+if [[ ! -x "$ASR" ]]; then
+  echo "Fehler: mlx-qwen3-asr ist nicht eingerichtet:" >&2
+  echo "$ASR" >&2
+  echo >&2
+  echo "Bitte einmal ausführen: qwen-meeting-setup" >&2
+  exit 3
+fi
+
+case "$LANGUAGE_MODE" in
+  auto)
+    LANGUAGE_ARGS=()
+    ;;
+  de|german|deutsch)
+    LANGUAGE_ARGS=(--language German)
+    ;;
+  en|english|englisch)
+    LANGUAGE_ARGS=(--language English)
+    ;;
+  *)
+    echo "Fehler: Unbekannter Sprachmodus: $LANGUAGE_MODE" >&2
+    show_usage >&2
+    exit 4
+    ;;
+esac
+
+FILENAME="${INPUT:t}"
+BASENAME="${FILENAME:r}"
+SAFE_NAME="$(printf '%s' "$BASENAME" | tr '/:' '__')"
+TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
+OUTPUT_DIR="$OUTPUT_ROOT/${TIMESTAMP}_${SAFE_NAME}"
+
+mkdir -p "$OUTPUT_DIR"
+
+CONTEXT=""
+if [[ -f "$CONTEXT_FILE" ]]; then
+  CONTEXT="$(
+    awk 'NF && $1 !~ /^#/ { printf "%s ", $0 }' "$CONTEXT_FILE" |
+      sed 's/[[:space:]]*$//'
+  )"
+fi
+
+ARGS=(
+  "$INPUT"
+  --model "$MODEL"
+  --timestamps
+  -f all
+  -o "$OUTPUT_DIR"
+  --verbose
+)
+
+if [[ -n "$CONTEXT" ]]; then
+  ARGS+=(--context "$CONTEXT")
+fi
+
+if (( ${#LANGUAGE_ARGS[@]} > 0 )); then
+  ARGS+=("${LANGUAGE_ARGS[@]}")
+fi
+
+echo
+echo "Qwen3-ASR Meeting-Transkription"
+echo "================================"
+echo "Eingabe:  $INPUT"
+echo "Modell:   $MODEL"
+echo "Sprache:  $LANGUAGE_MODE"
+echo "Ausgabe:  $OUTPUT_DIR"
+echo
+
+"$ASR" "${ARGS[@]}"
+
+TXT_FILE="$({
+  find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.txt' -print -quit
+} 2>/dev/null)"
+
+echo
+echo "Transkription abgeschlossen."
+echo "Ausgabeordner:"
+echo "$OUTPUT_DIR"
+
+if [[ -n "$TXT_FILE" && -f "$TXT_FILE" ]]; then
+  if /usr/bin/pbcopy < "$TXT_FILE"; then
+    echo
+    echo "Das TXT-Transkript wurde in die Zwischenablage kopiert."
+    echo "TXT-Datei:"
+    echo "$TXT_FILE"
+  else
+    echo >&2
+    echo "Hinweis: Das TXT-Transkript konnte nicht in die Zwischenablage kopiert werden." >&2
+  fi
+else
+  echo >&2
+  echo "Hinweis: Es wurde keine TXT-Datei im Ausgabeordner gefunden." >&2
+fi
+
+if ! /usr/bin/open "$OUTPUT_DIR"; then
+  echo "Hinweis: Der Ausgabeordner konnte nicht automatisch geöffnet werden." >&2
+fi
