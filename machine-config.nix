@@ -2,6 +2,7 @@
   username = "michaelklug";
 
   darwin = {
+    system = "aarch64-darwin";
     hostName = "fs-macbook-pro-m4";
     homeDirectory = "/Users/michaelklug";
     repoDirectory = "/Users/michaelklug/.config/nix-darwin";

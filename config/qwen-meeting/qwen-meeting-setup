@@ -1,49 +1,101 @@
 #!/bin/zsh
 
 set -euo pipefail
+umask 077
 
-VENV="$HOME/.venvs/qwen3-asr"
-PACKAGE="${QWEN_MEETING_PACKAGE:-mlx-qwen3-asr[aligner]==0.3.5}"
+VENV="${QWEN_MEETING_VENV:-$HOME/.venvs/qwen3-asr}"
+RUNTIME_DIR="${QWEN_MEETING_RUNTIME:-${XDG_CONFIG_HOME:-$HOME/.config}/qwen-meeting/runtime}"
+STATE_DIR="${QWEN_MEETING_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/qwen-meeting}"
 NIX_USER_BIN="/etc/profiles/per-user/$(/usr/bin/id -un)/bin"
 
 export PATH="$NIX_USER_BIN:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
+unset VIRTUAL_ENV
 
 if [[ "$(uname -s)" != Darwin || "$(uname -m)" != arm64 ]]; then
   echo "Fehler: mlx-qwen3-asr benötigt einen Apple-Silicon-Mac." >&2
   exit 1
 fi
 
-UV="$(command -v uv || true)"
-PYTHON="$(command -v python3.13 || true)"
+UV="${QWEN_MEETING_UV:-$(command -v uv || true)}"
+PYTHON="${QWEN_MEETING_PYTHON:-$(command -v python3.13 || true)}"
 
-if [[ -z "$UV" ]]; then
+if [[ -z "$UV" || ! -x "$UV" ]]; then
   echo "Fehler: uv fehlt. Bitte zuerst die Nix-Darwin-Konfiguration anwenden." >&2
   exit 2
 fi
 
-if [[ -z "$PYTHON" ]]; then
+if [[ -z "$PYTHON" || ! -x "$PYTHON" ]]; then
   echo "Fehler: Python 3.13 fehlt. Bitte zuerst die Nix-Darwin-Konfiguration anwenden." >&2
   exit 3
 fi
 
-if [[ -e "$VENV" && ! -f "$VENV/pyvenv.cfg" ]]; then
-  echo "Fehler: $VENV existiert, ist aber keine virtuelle Python-Umgebung." >&2
-  echo "Der Pfad wurde aus Sicherheitsgründen nicht verändert." >&2
-  exit 4
+for required_file in pyproject.toml uv.lock fetch-models.py; do
+  if [[ ! -f "$RUNTIME_DIR/$required_file" ]]; then
+    echo "Fehler: Laufzeitdatei fehlt: $RUNTIME_DIR/$required_file" >&2
+    echo "Bitte zuerst die Nix-Darwin-Konfiguration anwenden." >&2
+    exit 4
+  fi
+done
+
+if [[ -L "$VENV" || ( -e "$VENV" && ! -f "$VENV/pyvenv.cfg" ) ]]; then
+  echo "Fehler: $VENV existiert, ist aber keine sichere virtuelle Python-Umgebung." >&2
+  echo "Der Pfad wurde nicht verändert." >&2
+  exit 5
+fi
+if [[ -d "$VENV" && "$(/usr/bin/stat -f '%Lp' "$VENV")" != 700 ]]; then
+  echo "Fehler: Die vorhandene Python-Umgebung ist nicht privat (erwartet: Modus 700)." >&2
+  echo "Bitte die Rechte bewusst manuell mit chmod 700 korrigieren." >&2
+  exit 5
 fi
 
-mkdir -p "${VENV:h}"
+VENV_WAS_PRESENT=false
+[[ -d "$VENV" ]] && VENV_WAS_PRESENT=true
 
-echo "Erstelle die dedizierte Python-Umgebung: $VENV"
-"$UV" venv --clear --no-managed-python --python "$PYTHON" "$VENV"
+if [[ -L "$STATE_DIR" || ( -e "$STATE_DIR" && ! -d "$STATE_DIR" ) ]]; then
+  echo "Fehler: Das Qwen-Statusverzeichnis ist kein sicheres Verzeichnis." >&2
+  exit 5
+fi
+if [[ -d "$STATE_DIR" && "$(/usr/bin/stat -f '%Lp' "$STATE_DIR")" != 700 ]]; then
+  echo "Fehler: Das Qwen-Statusverzeichnis ist nicht privat (erwartet: Modus 700)." >&2
+  echo "Bitte die Rechte bewusst manuell mit chmod 700 korrigieren." >&2
+  exit 5
+fi
 
-echo "Installiere $PACKAGE"
-"$UV" pip install --python "$VENV/bin/python" --upgrade --strict "$PACKAGE"
+/bin/mkdir -p "${VENV:h}" "$STATE_DIR"
+if [[ "$(/usr/bin/stat -f '%Lp' "$STATE_DIR")" != 700 ]]; then
+  echo "Fehler: Das Qwen-Statusverzeichnis konnte nicht privat angelegt werden." >&2
+  exit 5
+fi
+
+echo "Synchronisiere die revisionsgesperrte Python-Umgebung: $VENV"
+UV_PROJECT_ENVIRONMENT="$VENV" "$UV" sync \
+  --project "$RUNTIME_DIR" \
+  --locked \
+  --no-dev \
+  --no-install-project \
+  --python "$PYTHON" \
+  --no-managed-python \
+  --no-python-downloads
+
+if [[ ! -x "$VENV/bin/python" || ! -x "$VENV/bin/mlx-qwen3-asr" ]]; then
+  echo "Fehler: Die synchronisierte Umgebung ist unvollständig." >&2
+  exit 6
+fi
+
+# Only normalize a newly-created environment. Existing environments and user
+# data are never chmod'ed implicitly; insecure ones are rejected above.
+if [[ "$VENV_WAS_PRESENT" == false ]]; then
+  /usr/bin/find "$VENV" -type d -exec /bin/chmod 0700 {} +
+  /usr/bin/find "$VENV" -type f -perm -0100 -exec /bin/chmod 0700 {} +
+  /usr/bin/find "$VENV" -type f ! -perm -0100 -exec /bin/chmod 0600 {} +
+fi
+
+echo "Lade die revisionsgesperrten Modelle in den privaten lokalen Cache."
+"$VENV/bin/python" "$RUNTIME_DIR/fetch-models.py" --state-dir "$STATE_DIR"
 
 echo
 "$VENV/bin/mlx-qwen3-asr" --doctor
 
 echo
-echo "Qwen3-ASR ist eingerichtet."
-echo "Beim ersten Transkriptionslauf werden die Modellgewichte heruntergeladen."
+echo "Qwen3-ASR ist eingerichtet. Transkriptionsläufe bleiben vollständig offline."
 echo "Beispiel: qwen-meeting \"/Pfad/zur/Aufnahme.m4a\""

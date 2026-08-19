@@ -1,57 +1,150 @@
 #!/bin/zsh
 
 set -euo pipefail
+umask 077
 
 ASR="${QWEN_MEETING_ASR:-$HOME/.venvs/qwen3-asr/bin/mlx-qwen3-asr}"
-MODEL="${QWEN_MEETING_MODEL:-Qwen/Qwen3-ASR-1.7B}"
+STATE_DIR="${QWEN_MEETING_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/qwen-meeting}"
+MODEL="${QWEN_MEETING_MODEL:-$STATE_DIR/models/asr}"
+ALIGNER="${QWEN_MEETING_ALIGNER:-$STATE_DIR/models/aligner}"
 CONTEXT_FILE="${QWEN_MEETING_CONTEXT:-${XDG_CONFIG_HOME:-$HOME/.config}/qwen-meeting/context.txt}"
 OUTPUT_ROOT="${QWEN_MEETING_OUTPUT_ROOT:-$HOME/Documents/Muesli-Transcripts}"
+OPEN_CMD="${QWEN_MEETING_OPEN_CMD:-/usr/bin/open}"
+COPY_CMD="${QWEN_MEETING_COPY_CMD:-/usr/bin/pbcopy}"
 NIX_USER_BIN="/etc/profiles/per-user/$(/usr/bin/id -un)/bin"
 
-# Keep ffmpeg and the other Nix-managed command-line tools visible even when
-# this wrapper is started outside an interactive shell.
+# No model or telemetry request is permitted during transcription. The setup
+# command is the sole explicit network boundary for dependencies and models.
+export HF_HOME="$STATE_DIR/huggingface"
+export HF_HUB_OFFLINE=1
+export HF_HUB_DISABLE_TELEMETRY=1
 export PATH="$NIX_USER_BIN:/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 
 show_usage() {
   cat <<'USAGE'
 Verwendung:
 
-  qwen-meeting "/Pfad/meeting.m4a"
-  qwen-meeting "/Pfad/meeting.m4a" auto
-  qwen-meeting "/Pfad/meeting.m4a" de
-  qwen-meeting "/Pfad/meeting.m4a" en
+  qwen-meeting [--copy] [--no-open] "/Pfad/meeting.m4a" [auto|de|en]
+
+Optionen:
+
+  --copy      TXT-Transkript zusätzlich in die Zwischenablage kopieren
+  --no-open   Ausgabeordner nach Abschluss nicht im Finder öffnen
+  -h, --help  Diese Hilfe anzeigen
 
 Sprachmodi:
 
-  auto    Deutsch/Englisch automatisch erkennen
+  auto    Deutsch/Englisch automatisch erkennen (Standard)
   de      überwiegend deutsches Meeting
   en      englisches Meeting
 
 Für österreichisches Deutsch mit englischen IT-Begriffen wird "auto" empfohlen.
+Dateinamen, die mit "-" beginnen, nach "--" angeben.
 USAGE
 }
 
-if [[ $# -lt 1 || $# -gt 2 ]]; then
-  show_usage
+COPY_TO_CLIPBOARD=false
+OPEN_OUTPUT=true
+POSITIONAL=()
+
+while (( $# > 0 )); do
+  case "$1" in
+    --copy)
+      COPY_TO_CLIPBOARD=true
+      ;;
+    --no-open)
+      OPEN_OUTPUT=false
+      ;;
+    -h|--help)
+      show_usage
+      exit 0
+      ;;
+    --)
+      shift
+      while (( $# > 0 )); do
+        POSITIONAL+=("$1")
+        shift
+      done
+      break
+      ;;
+    -*)
+      echo "Fehler: Unbekannte Option: $1" >&2
+      show_usage >&2
+      exit 1
+      ;;
+    *)
+      POSITIONAL+=("$1")
+      ;;
+  esac
+  shift
+done
+
+if (( ${#POSITIONAL[@]} < 1 || ${#POSITIONAL[@]} > 2 )); then
+  show_usage >&2
   exit 1
 fi
 
-INPUT="$1"
-LANGUAGE_MODE="${2:-auto}"
+INPUT="${POSITIONAL[1]}"
+LANGUAGE_MODE="${POSITIONAL[2]:-auto}"
 
 if [[ ! -f "$INPUT" ]]; then
-  echo "Fehler: Datei wurde nicht gefunden:" >&2
-  echo "$INPUT" >&2
+  echo "Fehler: Die Eingabedatei wurde nicht gefunden." >&2
   exit 2
 fi
 
 if [[ ! -x "$ASR" ]]; then
-  echo "Fehler: mlx-qwen3-asr ist nicht eingerichtet:" >&2
-  echo "$ASR" >&2
-  echo >&2
+  echo "Fehler: mlx-qwen3-asr ist nicht eingerichtet." >&2
   echo "Bitte einmal ausführen: qwen-meeting-setup" >&2
   exit 3
 fi
+
+validate_local_model() {
+  local label="$1"
+  local path="$2"
+
+  if [[ ! -d "$path" || ! -f "$path/config.json" ]]; then
+    echo "Fehler: $label ist kein eingerichteter lokaler Modellpfad." >&2
+    echo "Remote-Modellnamen sind nicht erlaubt; bitte qwen-meeting-setup ausführen." >&2
+    return 1
+  fi
+}
+
+ensure_private_directory() {
+  local label="$1"
+  local path="$2"
+  local mode
+
+  if [[ -L "$path" ]]; then
+    echo "Fehler: $label darf kein symbolischer Link sein." >&2
+    return 1
+  fi
+  if [[ -e "$path" ]]; then
+    if [[ ! -d "$path" ]]; then
+      echo "Fehler: $label ist kein Verzeichnis." >&2
+      return 1
+    fi
+    mode="$(/usr/bin/stat -f '%Lp' "$path")"
+    if [[ "$mode" != 700 ]]; then
+      echo "Fehler: $label ist nicht privat (erwartet: Modus 700)." >&2
+      echo "Bitte die Rechte bewusst manuell mit chmod 700 korrigieren." >&2
+      return 1
+    fi
+    return 0
+  fi
+
+  /bin/mkdir -p "$path"
+  mode="$(/usr/bin/stat -f '%Lp' "$path")"
+  if [[ "$mode" != 700 ]]; then
+    echo "Fehler: $label konnte nicht privat angelegt werden." >&2
+    return 1
+  fi
+}
+
+ensure_private_directory "Qwen-Statusverzeichnis" "$STATE_DIR" || exit 4
+validate_local_model "ASR-Modell" "$MODEL" || exit 4
+validate_local_model "Forced-Aligner" "$ALIGNER" || exit 4
+MODEL="${MODEL:A}"
+ALIGNER="${ALIGNER:A}"
 
 case "$LANGUAGE_MODE" in
   auto)
@@ -66,17 +159,19 @@ case "$LANGUAGE_MODE" in
   *)
     echo "Fehler: Unbekannter Sprachmodus: $LANGUAGE_MODE" >&2
     show_usage >&2
-    exit 4
+    exit 5
     ;;
 esac
 
+ensure_private_directory "Transkript-Ausgabeordner" "$OUTPUT_ROOT" || exit 6
+
 FILENAME="${INPUT:t}"
 BASENAME="${FILENAME:r}"
-SAFE_NAME="$(printf '%s' "$BASENAME" | tr '/:' '__')"
+SAFE_NAME="$(LC_ALL=C printf '%s' "$BASENAME" | tr -c '[:alnum:]._-' '_')"
+[[ -n "$SAFE_NAME" ]] || SAFE_NAME="meeting"
 TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
-OUTPUT_DIR="$OUTPUT_ROOT/${TIMESTAMP}_${SAFE_NAME}"
-
-mkdir -p "$OUTPUT_DIR"
+OUTPUT_DIR="$(/usr/bin/mktemp -d "$OUTPUT_ROOT/${TIMESTAMP}_${SAFE_NAME}.XXXXXX")"
+/bin/chmod 700 "$OUTPUT_DIR"
 
 CONTEXT=""
 if [[ -f "$CONTEXT_FILE" ]]; then
@@ -89,10 +184,11 @@ fi
 ARGS=(
   "$INPUT"
   --model "$MODEL"
+  --forced-aligner "$ALIGNER"
   --timestamps
   -f all
   -o "$OUTPUT_DIR"
-  --verbose
+  --quiet
 )
 
 if [[ -n "$CONTEXT" ]]; then
@@ -107,37 +203,43 @@ echo
 echo "Qwen3-ASR Meeting-Transkription"
 echo "================================"
 echo "Eingabe:  $INPUT"
-echo "Modell:   $MODEL"
 echo "Sprache:  $LANGUAGE_MODE"
 echo "Ausgabe:  $OUTPUT_DIR"
 echo
 
 "$ASR" "${ARGS[@]}"
 
-TXT_FILE="$({
-  find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*.txt' -print -quit
-} 2>/dev/null)"
+# Transcripts are data, never executables: normalize to exact private modes.
+/usr/bin/find "$OUTPUT_DIR" -type d -exec /bin/chmod 0700 {} +
+/usr/bin/find "$OUTPUT_DIR" -type f -exec /bin/chmod 0600 {} +
+
+TXT_FILES=("$OUTPUT_DIR"/*.txt(N))
+COPY_STATUS=0
+
+if [[ "$COPY_TO_CLIPBOARD" == true ]]; then
+  if (( ${#TXT_FILES[@]} != 1 )); then
+    echo "Hinweis: Es wurde kein eindeutiges TXT-Transkript zum Kopieren gefunden." >&2
+    COPY_STATUS=7
+  elif [[ ! -x "$COPY_CMD" ]]; then
+    echo "Hinweis: Das Zwischenablage-Werkzeug ist nicht verfügbar." >&2
+    COPY_STATUS=7
+  elif "$COPY_CMD" < "${TXT_FILES[1]}"; then
+    echo "Das TXT-Transkript wurde in die Zwischenablage kopiert."
+  else
+    echo "Hinweis: Das TXT-Transkript konnte nicht kopiert werden." >&2
+    COPY_STATUS=7
+  fi
+fi
 
 echo
 echo "Transkription abgeschlossen."
 echo "Ausgabeordner:"
 echo "$OUTPUT_DIR"
 
-if [[ -n "$TXT_FILE" && -f "$TXT_FILE" ]]; then
-  if /usr/bin/pbcopy < "$TXT_FILE"; then
-    echo
-    echo "Das TXT-Transkript wurde in die Zwischenablage kopiert."
-    echo "TXT-Datei:"
-    echo "$TXT_FILE"
-  else
-    echo >&2
-    echo "Hinweis: Das TXT-Transkript konnte nicht in die Zwischenablage kopiert werden." >&2
+if [[ "$OPEN_OUTPUT" == true ]]; then
+  if [[ ! -x "$OPEN_CMD" ]] || ! "$OPEN_CMD" "$OUTPUT_DIR"; then
+    echo "Hinweis: Der Ausgabeordner konnte nicht automatisch geöffnet werden." >&2
   fi
-else
-  echo >&2
-  echo "Hinweis: Es wurde keine TXT-Datei im Ausgabeordner gefunden." >&2
 fi
 
-if ! /usr/bin/open "$OUTPUT_DIR"; then
-  echo "Hinweis: Der Ausgabeordner konnte nicht automatisch geöffnet werden." >&2
-fi
+exit "$COPY_STATUS"

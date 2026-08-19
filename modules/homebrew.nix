@@ -124,6 +124,7 @@ in
       "tigervnc"
       "ollamac"
       "muesli"
+      "claudebar"
     ];
 
     masApps = {
