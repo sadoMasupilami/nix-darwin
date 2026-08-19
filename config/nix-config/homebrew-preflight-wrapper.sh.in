@@ -1,0 +1,55 @@
+#!/bin/bash
+
+set -euo pipefail
+umask 077
+
+tmp_root=${TMPDIR:-/tmp}
+tmp_root=${tmp_root%/}
+work_dir=$(/usr/bin/mktemp -d "$tmp_root/nix-homebrew-preflight.XXXXXX")
+/bin/chmod 700 "$work_dir"
+
+cleanup() {
+  /bin/rm -rf -- "$work_dir"
+}
+trap cleanup EXIT HUP INT TERM
+
+library="$work_dir/Library"
+/bin/mkdir -p \
+  "$library/.homebrew-is-managed-by-nix/.git" \
+  "$work_dir/cache" \
+  "$work_dir/config" \
+  "$work_dir/logs" \
+  "$work_dir/tmp"
+/usr/bin/touch "$library/.homebrew-is-managed-by-nix/.git/HEAD"
+/bin/ln -s "@brewCode@" "$library/Homebrew"
+/bin/ln -s "@taps@" "$library/Taps"
+
+# Read the installed Cellar/Caskroom from the real prefix, but keep Homebrew's
+# code, taps, configuration, cache, logs and temporary files in locked or
+# private disposable locations. Nothing under /opt/homebrew is mutated.
+export NIX_HOMEBREW_PREFLIGHT_LIBRARY="$library"
+export XDG_CONFIG_HOME="$work_dir/config"
+export TMPDIR="$work_dir/tmp"
+export HOMEBREW_CACHE="$work_dir/cache"
+export HOMEBREW_LOGS="$work_dir/logs"
+export HOMEBREW_TEMP="$work_dir/tmp"
+export HOMEBREW_NO_ANALYTICS=1
+export HOMEBREW_NO_AUTO_UPDATE=1
+export HOMEBREW_NO_ENV_HINTS=1
+export HOMEBREW_NO_INSTALL_FROM_API=1
+# mas 7 otherwise invokes mdimport while merely checking Bundle state. Keep
+# the promised preflight read-only; a real activation may still index/install.
+export MAS_NO_AUTO_INDEX=1
+
+# The disposable library contains only the four locked declarative taps. This
+# emulates the two explicit trust entries that activation will persist, without
+# writing a trust database during a read-only preflight. Formula and cask
+# definitions are loaded exclusively from those pinned local checkouts.
+export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+
+# nix-homebrew 0.3.1's upstream patch still targets the pre-6.0 assignment
+# layout in brew.sh. Seed the exact locked version explicitly so Homebrew does
+# not fall back to its generic "shallow or no git repository" label.
+export HOMEBREW_VERSION="@brewVersion@"
+
+"@innerWrapper@" "$@"

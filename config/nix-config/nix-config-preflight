@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=lib.sh
+source "$script_dir/lib.sh"
+
+repo=$(nix_config_resolve_repo)
+nix_config_require_repo "$repo"
+flake_ref=$(nix_config_git_flake_ref "$repo")
+ulimit -n 65536 2>/dev/null || true
+cd -- "$repo"
+
+system_name=$(uname -s)
+taps_dir=/opt/homebrew/Library/Taps
+if [[ "${NIX_CONFIG_TESTING:-0}" == 1 ]]; then
+  system_name=${NIX_CONFIG_TEST_SYSTEM:-$system_name}
+  taps_dir=${NIX_CONFIG_TEST_TAPS_DIR:-$taps_dir}
+fi
+
+printf 'Checking the root flake...\n'
+# The explicit Git flake includes tracked local changes, including flake.lock,
+# without copying ignored or unrelated untracked files into the Nix store.
+nix flake check --refresh --no-update-lock-file "$flake_ref"
+
+if [[ "$system_name" != Darwin ]]; then
+  printf 'Homebrew checks skipped on %s.\n' "$system_name"
+  exit 0
+fi
+
+printf 'Building the Homebrew preflight environment from flake.lock...\n'
+brew_out=$(nix build --no-link --print-out-paths --no-update-lock-file \
+  "$flake_ref#homebrew-preflight")
+if [[ -z "$brew_out" || "$brew_out" == *$'\n'* ]]; then
+  printf 'error: homebrew-preflight returned an invalid output path\n' >&2
+  exit 2
+fi
+brew_bin="$brew_out/bin/brew"
+
+if [[ ! -x "$brew_bin" ]]; then
+  printf 'error: pinned Homebrew is not available at %s\n' "$brew_bin" >&2
+  exit 2
+fi
+
+printf 'Checking the pinned Homebrew version and openssl@3 parser canary...\n'
+expected_brew_version=$(nix eval --raw --no-update-lock-file \
+  "$flake_ref#darwinConfigurations.macos.config.nix-homebrew.package.version")
+if [[ ! "$expected_brew_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  printf 'error: invalid locked Homebrew version: %s\n' "$expected_brew_version" >&2
+  exit 2
+fi
+brew_version=$(HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" --version)
+printf '%s\n' "$brew_version"
+if [[ "${brew_version%%$'\n'*}" != "Homebrew $expected_brew_version" ]]; then
+  printf 'error: expected the locked Homebrew %s, got: %s\n' \
+    "$expected_brew_version" \
+    "${brew_version%%$'\n'*}" >&2
+  exit 2
+fi
+HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" info --json=v2 --formula -- openssl@3 >/dev/null
+
+if [[ -e "$taps_dir" && ! -L "$taps_dir" ]]; then
+  printf 'error: %s is still a mutable Homebrew tap directory\n' "$taps_dir" >&2
+  printf 'nix-homebrew.mutableTaps=false requires this path to be migrated to its managed symlink.\n' >&2
+  printf 'Back up and migrate it only as a separate, explicitly approved one-time action before applying.\n' >&2
+  exit 2
+fi
+
+tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/nix-config-preflight.XXXXXX")
+trap 'rm -rf -- "$tmp_dir"' EXIT
+brewfile="$tmp_dir/Brewfile"
+
+printf 'Evaluating the generated Brewfile...\n'
+nix eval --raw --no-update-lock-file \
+  "$flake_ref#darwinConfigurations.macos.config.homebrew.brewfile" >"$brewfile"
+
+if [[ ! -s "$brewfile" ]] \
+  || ! grep -Fqx '# Created by `nix-darwin`'"'"'s `homebrew` module' "$brewfile"; then
+  printf 'error: generated Brewfile is empty or malformed\n' >&2
+  exit 2
+fi
+
+require_brewfile_entry() {
+  local entry=$1
+  if ! grep -Fqx "$entry" "$brewfile"; then
+    printf 'error: required Brewfile entry is missing: %s\n' "$entry" >&2
+    exit 2
+  fi
+}
+
+# These applications are an explicit retention boundary for cleanup=zap.
+require_brewfile_entry 'cask "codex-app", trusted: true'
+require_brewfile_entry 'cask "chatgpt", trusted: true'
+require_brewfile_entry 'cask "silverstein/tap/minutes", trusted: true'
+
+if grep -Fqx 'brew "mas", trusted: true' "$brewfile" \
+  || grep -Fqx 'brew "docker-credential-helper", trusted: true' "$brewfile"; then
+  printf 'error: Nix-owned tools must not also be declared as Homebrew formulae\n' >&2
+  exit 2
+fi
+
+printf 'Parsing the generated Brewfile with Homebrew Bundle...\n'
+HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle list \
+  --all --file="$brewfile" >/dev/null
+
+formula_list="$tmp_dir/installed-formulae"
+cask_list="$tmp_dir/installed-casks"
+
+HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" list --formula >"$formula_list"
+HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" list --cask >"$cask_list"
+
+validate_brew_name() {
+  local kind=$1
+  local package=$2
+
+  if [[ ! "$package" =~ ^[A-Za-z0-9][A-Za-z0-9@+._/-]*$ ]] \
+    || [[ "$package" == *//* ]] \
+    || [[ "/$package/" == *"/../"* ]] \
+    || [[ "/$package/" == *"/./"* ]]; then
+    printf 'error: malformed installed %s name: %q\n' "$kind" "$package" >&2
+    exit 2
+  fi
+}
+
+parse_installed() {
+  local kind=$1
+  local list_file=$2
+  local package
+
+  while IFS= read -r package || [[ -n "$package" ]]; do
+    [[ -z "$package" ]] && continue
+    validate_brew_name "$kind" "$package"
+    # JSON mode avoids human-readable `brew info` linkage-cache writes while
+    # still loading and validating the complete formula/cask definition.
+    HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" info --json=v2 "--$kind" -- "$package" >/dev/null
+  done <"$list_file"
+}
+
+printf 'Parsing every installed Homebrew formula and cask...\n'
+parse_installed formula "$formula_list"
+parse_installed cask "$cask_list"
+
+printf 'Checking that every Brewfile dependency is already installed...\n'
+bundle_status=0
+HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle check \
+  --verbose --no-upgrade --file="$brewfile" || bundle_status=$?
+
+case "$bundle_status" in
+  0)
+    ;;
+  1)
+    printf 'Some Brewfile dependencies are not installed yet; apply will install them.\n'
+    ;;
+  *)
+    printf 'error: Brewfile dependency check failed with exit status %s\n' "$bundle_status" >&2
+    exit "$bundle_status"
+    ;;
+esac
+
+printf 'Previewing cleanup=zap (read-only; no --force)...\n'
+cleanup_status=0
+HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle cleanup \
+  --all --zap --file="$brewfile" </dev/null || cleanup_status=$?
+
+case "$cleanup_status" in
+  0)
+    printf 'Cleanup preview is empty.\n'
+    ;;
+  1)
+    # Homebrew documents exit 1 as the expected dry-run result when it found
+    # unmanaged items. The list above is informational, not a parser failure.
+    printf 'Cleanup preview found unmanaged items; review them before applying.\n'
+    ;;
+  *)
+    printf 'error: cleanup preview failed with exit status %s\n' "$cleanup_status" >&2
+    exit "$cleanup_status"
+    ;;
+esac
+
+printf 'Preflight passed. No Homebrew state was changed.\n'

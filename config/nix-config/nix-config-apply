@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=lib.sh
+source "$script_dir/lib.sh"
+
+repo=$(nix_config_resolve_repo)
+nix_config_require_repo "$repo"
+flake_ref=$(nix_config_git_flake_ref "$repo")
+ulimit -n 65536 2>/dev/null || true
+cd -- "$repo"
+
+"$script_dir/nix-config-preflight"
+
+system_name=$(uname -s)
+if [[ "${NIX_CONFIG_TESTING:-0}" == 1 ]]; then
+  system_name=${NIX_CONFIG_TEST_SYSTEM:-$system_name}
+fi
+if [[ "$system_name" == Darwin ]]; then
+  nix_bin=$(command -v nix)
+  sudo -- "$nix_bin" run "$flake_ref#darwin-rebuild" -- switch --flake "$flake_ref#macos"
+else
+  nix run "$flake_ref#home-manager" -- switch --flake "$flake_ref#default"
+fi
+
+nix-collect-garbage

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+# shellcheck source=lib.sh
+source "$script_dir/lib.sh"
+
+repo=$(nix_config_resolve_repo)
+nix_config_require_repo "$repo"
+ulimit -n 65536 2>/dev/null || true
+
+mode=${1:-all}
+if (( $# > 1 )); then
+  nix_config_usage_error "usage: nix-config-update [all|homebrew]"
+fi
+
+cd -- "$repo"
+
+case "$mode" in
+  all)
+    nix flake update
+    ;;
+  homebrew)
+    # Keep Homebrew itself and all tap sources in one compatibility cohort.
+    # This changes only flake.lock; it never runs brew or an activation.
+    nix flake update \
+      nix-homebrew \
+      homebrew-core \
+      homebrew-cask \
+      homebrew-azd \
+      homebrew-silverstein-tap
+    ;;
+  *)
+    nix_config_usage_error "usage: nix-config-update [all|homebrew]"
+    ;;
+esac
+
+if ! "$script_dir/nix-config-preflight"; then
+  printf 'error: preflight failed after updating %s\n' "$mode" >&2
+  printf 'flake.lock was intentionally left at the updated revisions for inspection; apply is blocked.\n' >&2
+  exit 1
+fi
