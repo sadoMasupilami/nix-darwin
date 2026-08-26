@@ -178,7 +178,7 @@ on run argv
       set AppleScript's text item delimiters to tab
       set columns to text items of (rowText as text)
       set AppleScript's text item delimiters to ""
-      if (count of columns) is at least 2 then
+      if (count of columns) ≥ 2 then
         set end of displayRows to ((item 1 of columns) & ". " & (item 2 of columns))
       end if
     end if
