@@ -58,6 +58,17 @@ printf 'nix' >>"$FAKE_COMMAND_LOG"
 printf ' <%s>' "$@" >>"$FAKE_COMMAND_LOG"
 printf '\n' >>"$FAKE_COMMAND_LOG"
 
+if [[ " $* " == *' flake prefetch '* ]]; then
+  if [[ "${FAKE_PREFETCH_STATUS:-0}" != 0 ]]; then exit "$FAKE_PREFETCH_STATUS"; fi
+  rev_json=null
+  if [[ -n "${FAKE_SNAPSHOT_REV:-}" ]]; then rev_json="\"$FAKE_SNAPSHOT_REV\""; fi
+  if [[ -f "$NIX_CONFIG_REPO/mutated" ]]; then
+    printf '{"storePath":"/nix/store/changed-source","locked":{"rev":%s}}\n' "$rev_json"
+  else
+    printf '{"storePath":"/nix/store/test-source","locked":{"rev":%s}}\n' "$rev_json"
+  fi
+fi
+
 if [[ " $* " == *' eval '* ]]; then
   if [[ " $* " == *'nix-homebrew.package.version'* ]]; then
     printf '%s' "${FAKE_EXPECTED_BREW_VERSION:-6.0.15}"
@@ -74,6 +85,7 @@ if [[ " $* " == *' eval '* ]]; then
 fi
 
 if [[ " $* " == *' flake check '* ]]; then
+  if [[ "${FAKE_MUTATE_REPO:-0}" == 1 ]]; then touch "$NIX_CONFIG_REPO/mutated"; fi
   exit "${FAKE_NIX_CHECK_STATUS:-0}"
 fi
 
@@ -111,7 +123,7 @@ case "${1:-} ${2:-} ${3:-}" in
   'bundle list --all') exit "${FAKE_BREW_BUNDLE_LIST_STATUS:-0}" ;;
   'bundle check --verbose') exit "${FAKE_BREW_CHECK_STATUS:-0}" ;;
   'bundle cleanup --all')
-    printf 'Would uninstall casks:\nexample\n'
+    printf 'Would uninstall casks:\n%s\n' "${FAKE_CLEANUP_ITEM:-example}"
     exit "${FAKE_BREW_CLEANUP_STATUS:-0}"
     ;;
 esac
@@ -151,24 +163,25 @@ chmod +x \
   "$fake_bin/nix-collect-garbage" \
   "$fake_homebrew/bin/brew"
 
-export PATH="$fake_bin:/usr/bin:/bin"
+export PATH="$fake_bin:$PATH"
 export FAKE_COMMAND_LOG=$log_file
 export NIX_CONFIG_REPO=$fake_repo
 export NIX_CONFIG_TESTING=1
 export NIX_CONFIG_TEST_TAPS_DIR=$fixture/declarative-taps
 export FAKE_HOMEBREW_PREFLIGHT_OUT=$fake_homebrew
 fake_flake_ref="git+file://${fake_repo// /%20}"
-fake_flake_ref=${fake_flake_ref//#/%23}
+fake_git_ref=${fake_flake_ref//#/%23}
+fake_flake_ref=path:/nix/store/test-source
 
 : >"$log_file"
 NIX_CONFIG_TEST_SYSTEM=Linux "$repo_root/config/nix-config/nix-config-update" homebrew
 assert_contains 'nix <flake> <update> <nix-homebrew> <homebrew-core> <homebrew-cask> <homebrew-azd> <homebrew-silverstein-tap>' "$log_file"
-assert_contains "nix <flake> <check> <--refresh> <--no-update-lock-file> <$fake_flake_ref>" "$log_file"
+assert_contains "nix <flake> <check> <--no-update-lock-file> <$fake_flake_ref>" "$log_file"
 
 : >"$log_file"
 NIX_CONFIG_TEST_SYSTEM=Linux "$repo_root/config/nix-config/nix-config-update"
 assert_contains 'nix <flake> <update>' "$log_file"
-assert_contains "nix <flake> <check> <--refresh> <--no-update-lock-file> <$fake_flake_ref>" "$log_file"
+assert_contains "nix <flake> <check> <--no-update-lock-file> <$fake_flake_ref>" "$log_file"
 
 if "$repo_root/config/nix-config/nix-config-update" invalid >/dev/null 2>&1; then
   fail 'invalid update mode unexpectedly succeeded'
@@ -183,10 +196,10 @@ assert_contains 'flake.lock was intentionally left at the updated revisions' "$f
 
 : >"$log_file"
 FAKE_BREW_CHECK_STATUS=1 \
-FAKE_BREW_CLEANUP_STATUS=1 \
+FAKE_BREW_CLEANUP_STATUS=0 \
 NIX_CONFIG_TEST_SYSTEM=Darwin \
   "$repo_root/config/nix-config/nix-config-preflight" >/dev/null
-assert_contains "nix <flake> <check> <--refresh> <--no-update-lock-file> <$fake_flake_ref>" "$log_file"
+assert_contains "nix <flake> <check> <--no-update-lock-file> <$fake_flake_ref>" "$log_file"
 assert_contains "nix <build> <--no-link> <--print-out-paths> <--no-update-lock-file> <$fake_flake_ref#homebrew-preflight>" "$log_file"
 assert_contains 'pinned-brew <--version>' "$log_file"
 assert_contains 'pinned-brew <bundle> <list> <--all>' "$log_file"
@@ -234,7 +247,7 @@ assert_not_contains 'pinned-brew <info> <--json=v2> <--formula>' "$log_file"
 FAKE_EXPECTED_BREW_VERSION=6.0.16 \
 FAKE_BREW_VERSION_OUTPUT='Homebrew 6.0.16' \
 FAKE_BREW_CHECK_STATUS=1 \
-FAKE_BREW_CLEANUP_STATUS=1 \
+FAKE_BREW_CLEANUP_STATUS=0 \
 NIX_CONFIG_TEST_SYSTEM=Darwin \
   "$repo_root/config/nix-config/nix-config-preflight" >/dev/null
 assert_contains 'pinned-brew <--version>' "$log_file"
@@ -273,13 +286,82 @@ assert_not_contains 'pinned-brew <info> <--json=v2> <--cask>' "$log_file"
 : >"$log_file"
 NIX_CONFIG_TEST_SYSTEM=Linux "$repo_root/config/nix-config/nix-config-apply" >/dev/null
 assert_contains "nix <run> <$fake_flake_ref#home-manager> <--> <switch> <--flake> <$fake_flake_ref#default>" "$log_file"
-assert_contains 'nix-collect-garbage' "$log_file"
+assert_not_contains 'nix-collect-garbage' "$log_file"
 assert_not_contains 'nixpkgs#home-manager' "$log_file"
 
 : >"$log_file"
 NIX_CONFIG_TEST_SYSTEM=Darwin "$repo_root/config/nix-config/nix-config-apply" >/dev/null
 assert_contains "sudo <--> <$fake_bin/nix> <run> <$fake_flake_ref#darwin-rebuild> <--> <switch> <--flake> <$fake_flake_ref#macos>" "$log_file"
 assert_contains "nix <run> <$fake_flake_ref#darwin-rebuild> <--> <switch> <--flake> <$fake_flake_ref#macos>" "$log_file"
+assert_not_contains 'nix-collect-garbage' "$log_file"
+
+# A failed snapshot capture must never fall back to evaluating the checkout.
+: >"$log_file"
+if FAKE_PREFETCH_STATUS=7 NIX_CONFIG_TEST_SYSTEM=Linux \
+  "$repo_root/config/nix-config/nix-config-apply" >/dev/null 2>&1; then
+  fail 'apply continued after snapshot capture failed'
+fi
+assert_not_contains '<check>' "$log_file"
+assert_not_contains '<run>' "$log_file"
+
+# Approval must match the actual cleanup list and checked source snapshot.
+: >"$log_file"
+if FAKE_BREW_CLEANUP_STATUS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" >"$fixture/zap.out" 2>"$fixture/zap.err"; then
+  fail 'unapproved cleanup unexpectedly applied'
+fi
+assert_not_contains 'sudo' "$log_file"
+approval=$(sed -n 's/.*--accept-zap \([a-f0-9]*\)$/\1/p' "$fixture/zap.err")
+[[ ${#approval} == 64 ]] || fail 'missing approval token'
+: >"$log_file"
+FAKE_BREW_CLEANUP_STATUS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" --accept-zap "$approval" >/dev/null
+assert_contains 'sudo' "$log_file"
+: >"$log_file"
+if FAKE_BREW_CLEANUP_STATUS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" --accept-zap "$(printf '%064d' 0)" >/dev/null 2>&1; then
+  fail 'wrong cleanup token unexpectedly applied'
+fi
+assert_not_contains 'sudo' "$log_file"
+
+# Previously approved removals do not authorize a different list or source.
+: >"$log_file"
+if FAKE_CLEANUP_ITEM=another-app FAKE_BREW_CLEANUP_STATUS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" --accept-zap "$approval" >/dev/null 2>&1; then
+  fail 'changed cleanup list reused an old approval'
+fi
+assert_not_contains 'sudo' "$log_file"
+touch "$fake_repo/mutated"
+if FAKE_BREW_CLEANUP_STATUS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" --accept-zap "$approval" >/dev/null 2>&1; then
+  fail 'changed snapshot reused an old approval'
+fi
+rm "$fake_repo/mutated"
+assert_not_contains 'sudo' "$log_file"
+
+# One captured source is used even if the checkout changes during preflight.
+: >"$log_file"
+FAKE_MUTATE_REPO=1 NIX_CONFIG_TEST_SYSTEM=Linux \
+  "$repo_root/config/nix-config/nix-config-apply" --gc >/dev/null
+assert_contains "<$fake_flake_ref#home-manager>" "$log_file"
 assert_contains 'nix-collect-garbage' "$log_file"
+[[ $(grep -c '<prefetch>' "$log_file") == 1 ]] || fail 'apply captured more than one source'
+assert_contains "<$fake_git_ref>" "$log_file"
+rm "$fake_repo/mutated"
+
+# A clean checkout labels the snapshot with its commit; junk is rejected.
+clean_rev=$(printf '%040d' 1)
+: >"$log_file"
+FAKE_SNAPSHOT_REV=$clean_rev NIX_CONFIG_TEST_SYSTEM=Linux \
+  "$repo_root/config/nix-config/nix-config-apply" >/dev/null
+assert_contains "nix <flake> <check> <--no-update-lock-file> <$fake_flake_ref?rev=$clean_rev>" "$log_file"
+assert_contains "nix <run> <$fake_flake_ref?rev=$clean_rev#home-manager> <--> <switch> <--flake> <$fake_flake_ref?rev=$clean_rev#default>" "$log_file"
+: >"$log_file"
+if FAKE_SNAPSHOT_REV=not-a-commit NIX_CONFIG_TEST_SYSTEM=Linux \
+  "$repo_root/config/nix-config/nix-config-apply" >/dev/null 2>&1; then
+  fail 'malformed snapshot revision unexpectedly accepted'
+fi
+assert_not_contains '<check>' "$log_file"
+assert_not_contains '<run>' "$log_file"
 
 printf 'nix-config helper tests passed\n'
