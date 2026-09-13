@@ -12,8 +12,9 @@ nix_config_resolve_repo() {
   local source_dir
   source_dir=$(cd -- "$(dirname -- "$source_path")" && pwd -P)
 
-  # Repo checkout: config/nix-config/<helper>. Installed Home Manager links:
-  # ~/.bin/<helper> -> <repo>/config/nix-config/<helper>.
+  # The installed helpers live in the Nix store and get NIX_CONFIG_REPO from
+  # their wrapper. Running config/nix-config/<helper> from a checkout resolves
+  # that checkout instead.
   cd -- "$source_dir/../.." && pwd -P
 }
 

@@ -91,7 +91,9 @@ Homebrew-Upgrades noch gezappte Daten wieder her.
 
 ## Updates und Apply-Helfer
 
-Nach der ersten Home-Manager-Aktivierung liegen diese Befehle in `~/.bin`:
+Nach der ersten Home-Manager-Aktivierung liegen diese Befehle in `~/.bin`.
+Ihre Implementierung und Hilfsprogramme kommen aus dem Nix Store; Änderungen
+im Checkout ändern die installierten Helfer erst beim nächsten Apply:
 
 ```bash
 nix-config-update [all|homebrew]
