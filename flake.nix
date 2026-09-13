@@ -14,6 +14,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Plugin contents are versioned alongside the rest of the environment.
+    ponytail = {
+      url = "github:DietrichGebert/ponytail";
+      flake = false;
+    };
+
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
     determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
 
@@ -293,6 +299,7 @@
         ];
         extraSpecialArgs = {
           inherit username;
+          ponytailSource = inputs.ponytail;
           homeDirectory = linuxHomeDirectory;
           repoDirectory = linuxRepoDirectory;
         };
@@ -358,6 +365,7 @@
               useUserPackages = true;
               extraSpecialArgs = {
                 inherit username;
+                ponytailSource = inputs.ponytail;
                 inherit (machineConfig.darwin)
                   homeDirectory
                   hostName
@@ -430,6 +438,10 @@
       packages.${darwinSystem} = {
         homebrew-preflight = homebrewPreflight;
         qwen-meeting-runtime = (pkgsFor darwinSystem).callPackage ./packages/qwen-meeting-runtime { };
+        ponytail = (pkgsFor darwinSystem).callPackage ./packages/ponytail { src = inputs.ponytail; };
+      };
+      packages.${linuxSystem}.ponytail = linuxPkgs.callPackage ./packages/ponytail {
+        src = inputs.ponytail;
       };
 
       checks = {
@@ -440,12 +452,16 @@
           homebrew-preflight = homebrewPreflight;
           local-private-tools = mkLocalToolsCheck (pkgsFor darwinSystem);
           qwen-meeting-runtime = self.packages.${darwinSystem}.qwen-meeting-runtime;
+          ponytail = self.packages.${darwinSystem}.ponytail;
+          ponytail-activation = self.packages.${darwinSystem}.ponytail.tests.activation;
           nix-config-helpers = mkHelperTests (pkgsFor darwinSystem);
           shell = mkShellCheck (pkgsFor darwinSystem);
         };
         ${linuxSystem} = {
           evaluation = mkEvaluationCheck linuxPkgs;
           linux-home-manager = linuxHomeConfiguration.activationPackage;
+          ponytail = self.packages.${linuxSystem}.ponytail;
+          ponytail-activation = self.packages.${linuxSystem}.ponytail.tests.activation;
           formatting = mkFormattingCheck linuxPkgs;
           nix-config-helpers = mkHelperTests linuxPkgs;
           shell = mkShellCheck linuxPkgs;
