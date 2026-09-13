@@ -37,6 +37,8 @@ jobs:
           .#checks.x86_64-linux.formatting
           .#checks.x86_64-linux.shell
           .#checks.x86_64-linux.nix-config-helpers
+          .#checks.x86_64-linux.ponytail
+          .#checks.x86_64-linux.ponytail-activation
 
   darwin:
     name: Apple Silicon nix-darwin and static checks
@@ -58,3 +60,5 @@ jobs:
           .#checks.aarch64-darwin.qwen-meeting-runtime
           .#checks.aarch64-darwin.shell
           .#checks.aarch64-darwin.nix-config-helpers
+          .#checks.aarch64-darwin.ponytail
+          .#checks.aarch64-darwin.ponytail-activation

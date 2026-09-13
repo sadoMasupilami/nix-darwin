@@ -166,6 +166,50 @@ homeConfigurations.default
 homeConfigurations.michaelklug
 ```
 
+## Ponytail für Codex und Claude Code
+
+Der Flake-Input `ponytail` pinnt die GitHub-Revision samt Content-Hash in
+`flake.lock`. [`packages/ponytail`](packages/ponytail/default.nix) bindet die
+drei Lifecycle-Hooks an absolute Nix-Store-Pfade für Node.js und das Plugin.
+Ein globales Node.js oder eine Änderung des GUI-PATH ist nicht erforderlich.
+
+Beim normalen Apply verlinkt Home Manager das Plugin für beide Clients und
+aktiviert nur die zugehörigen Einstellungen:
+
+- Claude Code: persönliches Plugin `ponytail@skills-dir` in
+  `~/.claude/skills/ponytail` (Claude Code ab 2.1.157).
+- Codex: lokaler Marketplace `nix-ponytail` und ein nach Plugin-Build
+  versionierter Cache; Plugin-ID `ponytail@nix-ponytail`.
+
+Die Aktivierung benötigt keinen Netzwerkzugriff und keinen separaten
+Setup-Befehl. Neue Quellen und Build-Abhängigkeiten lädt Nix beim Build.
+Vorhandene Client-Einstellungen bleiben erhalten; der Merge bewahrt auch
+TOML-Kommentare. Ungültige oder symlinkverwaltete Einstellungsdateien werden
+nicht überschrieben. Die Clients vor einem Apply schließen, damit sie nicht
+gleichzeitig ihre Einstellungen schreiben. Der nächste Apply aktiviert ein
+manuell deaktiviertes Ponytail wieder, solange es hier deklariert ist.
+
+Nach dem ersten Apply in Codex `/hooks` öffnen und die Ponytail-Hooks prüfen
+und freigeben. Diese Vertrauensentscheidung bleibt manuell; nach Änderungen
+am Plugin kann Codex eine erneute Freigabe verlangen. Beide Apps neu starten
+und neue Sessions beginnen. Danach ist Ponytail automatisch aktiv, sofern
+keine vorhandene Ponytail-Moduskonfiguration es deaktiviert. Es wurde kein
+Hook-Vertrauen vorab gesetzt. Die macOS-Clients kommen weiterhin aus Homebrew;
+unter Linux müssen passende Codex- und Claude-Code-Versionen vorhanden sein.
+
+Updates erfolgen über `nix-config-update all` oder gezielt mit
+`nix flake update ponytail`, anschließend Preflight und Apply. Bei einem
+Upstream-Versions- oder Hook-Wechsel stoppt der Paket-Build zur Prüfung der
+Runtime-Anpassung. Die Plugin-Version und damit der Codex-Cache-Pfad ändern
+sich nur mit neuem Upstream, geänderter Hook-Anpassung oder neuem Node.js.
+Ein Apply einer älteren Nix-Generation stellt auch den älteren Plugin-Pfad
+wieder her. Claude Code lädt das Plugin über den Symlink in den Nix Store
+(geprüft mit `claude plugin list` unter 2.1.231). Da Claude Code die
+Symlink-Prüfung für Plugin-Pfade laufend verschärft, nach einem Client-Update
+per `nix-config-update homebrew` einmal `claude plugin list` kontrollieren.
+Siehe die
+[Ponytail-Anleitung](https://github.com/DietrichGebert/ponytail#install).
+
 ## Lokale Meeting-Transkription
 
 Auf Apple Silicon installiert Home Manager die Befehle `qwen-meeting` und
