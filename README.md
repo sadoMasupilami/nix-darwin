@@ -80,7 +80,8 @@ intern den im gemeinsamen Lockfile gepinnten `darwin-rebuild`:
 ```
 
 Der zugrunde liegende Flake-Einstieg ist
-`sudo -- "$(command -v nix)" run .#darwin-rebuild -- switch --flake .#macos`.
+`sudo -- "$(command -v nix)" run "$snapshot#darwin-rebuild" -- switch --flake "$snapshot#macos"`.
+`$snapshot` ist dabei der zuvor geprüfte Nix-Store-Snapshot.
 `sudo` ist für die Systemaktivierung erforderlich; die App und ihre Version
 stammen weiterhin aus dem gemeinsamen Lockfile.
 
@@ -98,7 +99,7 @@ im Checkout ändern die installierten Helfer erst beim nächsten Apply:
 ```bash
 nix-config-update [all|homebrew]
 nix-config-preflight
-nix-config-apply
+nix-config-apply [--gc] [--accept-zap HASH]
 ```
 
 - `nix-config-update all` aktualisiert alle Root-Flake-Inputs und führt danach
@@ -108,8 +109,20 @@ nix-config-apply
   Preflight aus.
 - Ein fehlgeschlagener Preflight lässt das neue `flake.lock` zur Prüfung liegen,
   blockiert aber den Apply.
-- `nix-config-apply` führt zuerst den Preflight und danach den gepinnten
-  Plattform-Einstieg aus. Ein separates `mas upgrade` gibt es nicht mehr.
+- Preflight und Apply erfassen die getrackten Working-Tree-Dateien einmal als
+  unveränderlichen Nix-Store-Snapshot. Prüfung und Aktivierung verwenden genau
+  diesen Stand, auch wenn der Checkout inzwischen geändert wird. Ein sauberer
+  Checkout gibt seinen Commit als `configurationRevision` an die Generation
+  weiter; ein Checkout mit lokalen Änderungen bleibt unbeschriftet.
+- Ein nicht leerer Zap-Preview stoppt mit Exitcode 3. Nach Prüfung der Liste
+  kann `nix-config-apply --accept-zap HASH` mit dem ausgegebenen Hash ausgeführt
+  werden. Die Freigabe gilt nur für genau diese Liste und diesen Snapshot;
+  geänderte Dateien oder eine andere Entfernungsliste benötigen eine neue
+  Freigabe. Während des Apply keine parallelen Homebrew-Änderungen vornehmen.
+- Garbage Collection erfolgt nur mit `nix-config-apply --gc`, weiterhin ohne
+  Löschen alter Generationen. Ein separates `mas upgrade` gibt es nicht mehr.
+- Neue Quelldateien müssen vor dem Preflight mit `git add` getrackt werden;
+  ignorierte und ungetrackte Dateien gehören bewusst nicht zum Snapshot.
 
 Homebrew-Casks und App-Store-Apps bleiben bewusst nativ verwaltet. Gepinnte
 Tap-Quellen fixieren die Paketdefinitionen; App-eigene Updater und App-Store-
