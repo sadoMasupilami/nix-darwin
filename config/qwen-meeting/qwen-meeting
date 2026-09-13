@@ -3,7 +3,7 @@
 set -euo pipefail
 umask 077
 
-ASR="${QWEN_MEETING_ASR:-$HOME/.venvs/qwen3-asr/bin/mlx-qwen3-asr}"
+ASR="${QWEN_MEETING_ASR:-}"
 STATE_DIR="${QWEN_MEETING_STATE_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/qwen-meeting}"
 MODEL="${QWEN_MEETING_MODEL:-$STATE_DIR/models/asr}"
 ALIGNER="${QWEN_MEETING_ALIGNER:-$STATE_DIR/models/aligner}"
@@ -93,8 +93,8 @@ if [[ ! -f "$INPUT" ]]; then
 fi
 
 if [[ ! -x "$ASR" ]]; then
-  echo "Fehler: mlx-qwen3-asr ist nicht eingerichtet." >&2
-  echo "Bitte einmal ausführen: qwen-meeting-setup" >&2
+  echo "Fehler: Die Nix-Laufzeit für mlx-qwen3-asr fehlt." >&2
+  echo "Bitte die Konfiguration anwenden und den installierten Helfer ~/.bin/qwen-meeting verwenden." >&2
   exit 3
 fi
 

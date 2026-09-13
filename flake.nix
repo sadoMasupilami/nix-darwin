@@ -427,7 +427,10 @@
         };
       };
 
-      packages.${darwinSystem}.homebrew-preflight = homebrewPreflight;
+      packages.${darwinSystem} = {
+        homebrew-preflight = homebrewPreflight;
+        qwen-meeting-runtime = (pkgsFor darwinSystem).callPackage ./packages/qwen-meeting-runtime { };
+      };
 
       checks = {
         ${darwinSystem} = {
@@ -436,6 +439,7 @@
           formatting = mkFormattingCheck (pkgsFor darwinSystem);
           homebrew-preflight = homebrewPreflight;
           local-private-tools = mkLocalToolsCheck (pkgsFor darwinSystem);
+          qwen-meeting-runtime = self.packages.${darwinSystem}.qwen-meeting-runtime;
           nix-config-helpers = mkHelperTests (pkgsFor darwinSystem);
           shell = mkShellCheck (pkgsFor darwinSystem);
         };

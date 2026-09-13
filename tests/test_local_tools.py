@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import stat
 import subprocess
 import tempfile
@@ -204,6 +203,14 @@ printf '{}\\n' > "$output/$stem.json"
         self.assertFalse(self.copied.exists())
         self.assertFalse(self.open_args.exists())
 
+    def test_missing_nix_runtime_is_reported_before_any_output(self) -> None:
+        self.environment["QWEN_MEETING_ASR"] = ""
+        result = self.run_wrapper(str(self.audio))
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("Nix-Laufzeit", result.stderr)
+        self.assertFalse(self.asr_args.exists())
+        self.assertFalse(self.output.exists())
+
 
 class QwenSetupTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -211,49 +218,22 @@ class QwenSetupTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.home = self.root / "home"
         self.runtime = self.home / "runtime"
-        self.venv = self.home / ".venvs" / "qwen3-asr"
         self.state = self.home / "state"
-        self.fake_uv = self.root / "fake-uv"
-        self.uv_args = self.root / "uv-args"
         self.fetch_args = self.root / "fetch-args"
         self.runtime.mkdir(parents=True)
-        for filename in ("pyproject.toml", "uv.lock", "fetch-models.py"):
-            (self.runtime / filename).touch()
-
-        write_executable(
-            self.fake_uv,
-            """#!/usr/bin/env bash
-set -euo pipefail
-printf 'UV_PROJECT_ENVIRONMENT=%s\\n' "${UV_PROJECT_ENVIRONMENT:-}" > "$UV_ARGS_FILE"
-for argument in "$@"; do printf '%s\\n' "$argument" >> "$UV_ARGS_FILE"; done
-mkdir -p "$UV_PROJECT_ENVIRONMENT/bin"
-cat > "$UV_PROJECT_ENVIRONMENT/bin/python" <<'PYTHON'
-#!/usr/bin/env bash
-printf '%s\\n' "$@" > "${FETCH_ARGS_FILE:?}"
-PYTHON
-cat > "$UV_PROJECT_ENVIRONMENT/bin/mlx-qwen3-asr" <<'ASR'
-#!/usr/bin/env bash
-[[ "$1" == "--doctor" ]]
-ASR
-chmod 700 "$UV_PROJECT_ENVIRONMENT/bin/python" "$UV_PROJECT_ENVIRONMENT/bin/mlx-qwen3-asr"
-""",
-        )
-        python = shutil.which("python3.13")
-        if python is None:
-            self.fail("python3.13 is required for the setup tests")
+        (self.runtime / "fetch-models.py").touch()
+        python = self.root / "python"
+        asr = self.root / "asr"
+        write_executable(python, '#!/bin/bash\nprintf "%s\\n" "$@" > "${FETCH_ARGS_FILE:?}"\n')
+        write_executable(asr, '#!/bin/bash\n[[ "$1" == "--doctor" ]]\n')
         self.environment = os.environ.copy()
-        self.environment.update(
-            {
-                "HOME": str(self.home),
-                "QWEN_MEETING_VENV": str(self.venv),
-                "QWEN_MEETING_RUNTIME": str(self.runtime),
-                "QWEN_MEETING_STATE_HOME": str(self.state),
-                "QWEN_MEETING_UV": str(self.fake_uv),
-                "QWEN_MEETING_PYTHON": python,
-                "UV_ARGS_FILE": str(self.uv_args),
-                "FETCH_ARGS_FILE": str(self.fetch_args),
-            }
-        )
+        self.environment.update({
+            "QWEN_MEETING_RUNTIME": str(self.runtime),
+            "QWEN_MEETING_STATE_HOME": str(self.state),
+            "QWEN_MEETING_PYTHON": str(python),
+            "QWEN_MEETING_ASR": str(asr),
+            "FETCH_ARGS_FILE": str(self.fetch_args),
+        })
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -261,45 +241,18 @@ chmod 700 "$UV_PROJECT_ENVIRONMENT/bin/python" "$UV_PROJECT_ENVIRONMENT/bin/mlx-
     def run_setup(self) -> subprocess.CompletedProcess[str]:
         return run_command(["/bin/zsh", str(QWEN_SETUP)], self.environment)
 
-    def test_setup_uses_locked_sync_without_activation_or_python_downloads(self) -> None:
+    def test_setup_only_fetches_models_with_injected_runtime(self) -> None:
         result = self.run_setup()
         self.assertEqual(result.returncode, 0, result.stderr)
-        arguments = self.uv_args.read_text().splitlines()
-        self.assertEqual(arguments[0], f"UV_PROJECT_ENVIRONMENT={self.venv}")
-        for required in (
-            "sync",
-            "--locked",
-            "--no-dev",
-            "--no-install-project",
-            "--no-managed-python",
-            "--no-python-downloads",
-        ):
-            self.assertIn(required, arguments)
-        fetch_arguments = self.fetch_args.read_text().splitlines()
-        self.assertIn(str(self.runtime / "fetch-models.py"), fetch_arguments)
-        self.assertEqual(
-            fetch_arguments[fetch_arguments.index("--state-dir") + 1], str(self.state)
-        )
-        self.assertEqual(stat.S_IMODE(self.venv.stat().st_mode), 0o700)
+        arguments = self.fetch_args.read_text().splitlines()
+        self.assertEqual(arguments, [str(self.runtime / "fetch-models.py"), "--state-dir", str(self.state)])
         self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o700)
 
-    def test_setup_refuses_non_venv_collision_without_modifying_it(self) -> None:
-        self.venv.mkdir(parents=True)
-        sentinel = self.venv / "sentinel"
-        sentinel.write_text("keep\n")
+    def test_setup_requires_nix_runtime(self) -> None:
+        self.environment["QWEN_MEETING_PYTHON"] = "/nonexistent"
         result = self.run_setup()
-        self.assertEqual(result.returncode, 5)
-        self.assertEqual(sentinel.read_text(), "keep\n")
-        self.assertFalse(self.uv_args.exists())
-
-    def test_setup_rejects_insecure_existing_venv_without_chmod(self) -> None:
-        self.venv.mkdir(parents=True)
-        (self.venv / "pyvenv.cfg").write_text("home = test\n")
-        self.venv.chmod(0o755)
-        result = self.run_setup()
-        self.assertEqual(result.returncode, 5)
-        self.assertEqual(stat.S_IMODE(self.venv.stat().st_mode), 0o755)
-        self.assertFalse(self.uv_args.exists())
+        self.assertEqual(result.returncode, 3)
+        self.assertFalse(self.fetch_args.exists())
 
     def test_setup_rejects_insecure_existing_state_without_chmod(self) -> None:
         self.state.mkdir(parents=True)
@@ -307,7 +260,7 @@ chmod 700 "$UV_PROJECT_ENVIRONMENT/bin/python" "$UV_PROJECT_ENVIRONMENT/bin/mlx-
         result = self.run_setup()
         self.assertEqual(result.returncode, 5)
         self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o755)
-        self.assertFalse(self.uv_args.exists())
+        self.assertFalse(self.fetch_args.exists())
 
 
 class TeamsPickerTests(unittest.TestCase):
