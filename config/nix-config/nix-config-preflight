@@ -89,7 +89,6 @@ require_brewfile_entry() {
 }
 
 # These applications are an explicit retention boundary for cleanup=zap.
-require_brewfile_entry 'cask "codex-app", trusted: true'
 require_brewfile_entry 'cask "chatgpt", trusted: true'
 require_brewfile_entry 'cask "silverstein/tap/minutes", trusted: true'
 

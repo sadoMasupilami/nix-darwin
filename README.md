@@ -44,7 +44,7 @@ Vor einer Aktivierung immer den read-only Preflight ausführen:
 ```
 
 Er baut die Konfiguration, wertet ein nicht leeres Brewfile aus, schützt
-`codex-app`, `chatgpt` und Minutes, parst alle installierten Formeln und Casks,
+`chatgpt` und Minutes, parst alle installierten Formeln und Casks,
 prüft Homebrew Bundle und zeigt mit `--all --zap` die geplante Bereinigung ohne
 `--force`. Dafür verwendet er bereits das aus dem gemeinsamen Lockfile gebaute
 Homebrew 6.0.15 und nicht die eventuell noch ältere Live-Installation. Der
@@ -109,9 +109,13 @@ nix-config-apply
 - `nix-config-apply` führt zuerst den Preflight und danach den gepinnten
   Plattform-Einstieg aus. Ein separates `mas upgrade` gibt es nicht mehr.
 
+Homebrew-Casks und App-Store-Apps bleiben bewusst nativ verwaltet. Gepinnte
+Tap-Quellen fixieren die Paketdefinitionen; App-eigene Updater und App-Store-
+Versionen können davon unabhängig sein. Nix-Rollbacks rollen diese Apps nicht
+zurück.
+
 Die gewählte Homebrew-Politik bleibt `autoUpdate = false`, `upgrade = true` und
-`cleanup = "zap"`. Homebrew selbst ist auf 6.0.15 gepinnt. `codex-app` bleibt
-trotz Deprecation vorläufig zusätzlich zu `chatgpt` deklariert; ChatGPT ist der
+`cleanup = "zap"`. Homebrew selbst ist auf 6.0.15 gepinnt. `chatgpt` ist der
 [aktuelle Desktop-Weg mit integriertem Codex](https://learn.chatgpt.com/docs/app).
 Das Verhalten der unforced Cleanup-Vorschau entspricht der
 [Homebrew-Manpage](https://docs.brew.sh/Manpage.html).
