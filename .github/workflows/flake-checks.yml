@@ -55,5 +55,6 @@ jobs:
           .#checks.aarch64-darwin.formatting
           .#checks.aarch64-darwin.homebrew-preflight
           .#checks.aarch64-darwin.local-private-tools
+          .#checks.aarch64-darwin.qwen-meeting-runtime
           .#checks.aarch64-darwin.shell
           .#checks.aarch64-darwin.nix-config-helpers

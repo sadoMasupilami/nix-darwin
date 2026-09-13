@@ -169,17 +169,29 @@ homeConfigurations.michaelklug
 ## Lokale Meeting-Transkription
 
 Auf Apple Silicon installiert Home Manager die Befehle `qwen-meeting` und
-`qwen-meeting-setup`. Erst der ausdrückliche Setup-Aufruf lädt Netzwerkdaten:
+`qwen-meeting-setup` samt unveränderlicher Python-Laufzeit im Nix Store.
+[`packages/qwen-meeting-runtime`](packages/qwen-meeting-runtime/default.nix)
+bezieht die Python-3.13-Wheels aus dem committed `uv.lock` mit ihren Hashes;
+Installation und Abhängigkeitsprüfung im Paket erfolgen offline. Nix lädt die
+Wheels beim Build. Die Wrapper referenzieren die Laufzeit ihrer Generation,
+sodass ein Rollback auch die Python-Abhängigkeiten wiederherstellt.
+
+Nur die großen Modellgewichte werden durch den ausdrücklichen Setup-Aufruf
+geladen:
 
 ```bash
 qwen-meeting-setup
 ```
 
-Er synchronisiert das committed [`uv.lock`](config/qwen-meeting/runtime/uv.lock)
-mit `uv sync --locked` und lädt exakt diese Modellrevisionen:
+Er lädt mit der Nix-Laufzeit exakt diese Modellrevisionen:
 
 - Qwen3-ASR-1.7B: `7278e1e70fe206f11671096ffdd38061171dd6e5`
 - Qwen3-ForcedAligner-0.6B: `c7cbfc2048c462b0d63a45797104fc9db3ad62b7`
+
+Eine vorhandene `~/.venvs/qwen3-asr` wird weder verändert noch entfernt und
+von den neuen Wrappern nicht mehr verwendet. Modelle und Transkripte bleiben
+außerhalb des Nix Stores. Die Modellrevisionen werden weiterhin separat durch
+Setup verwaltet; ein Runtime-Rollback lädt oder ersetzt keine Modellgewichte.
 
 Transkriptionsläufe verwenden danach nur lokale Modellpfade und
 `HF_HUB_OFFLINE=1`:
