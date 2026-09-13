@@ -61,15 +61,13 @@ printf '\n' >>"$FAKE_COMMAND_LOG"
 if [[ " $* " == *' eval '* ]]; then
   if [[ " $* " == *'nix-homebrew.package.version'* ]]; then
     printf '%s' "${FAKE_EXPECTED_BREW_VERSION:-6.0.15}"
-  elif [[ "${FAKE_BREWFILE_MODE:-complete}" == missing-codex ]]; then
+  elif [[ "${FAKE_BREWFILE_MODE:-complete}" == missing-chatgpt ]]; then
     printf '%s\n' \
       '# Created by `nix-darwin`'"'"'s `homebrew` module' \
-      'cask "chatgpt", trusted: true' \
       'cask "silverstein/tap/minutes", trusted: true'
   else
     printf '%s\n' \
       '# Created by `nix-darwin`'"'"'s `homebrew` module' \
-      'cask "codex-app", trusted: true' \
       'cask "chatgpt", trusted: true' \
       'cask "silverstein/tap/minutes", trusted: true'
   fi
@@ -107,7 +105,7 @@ case "${1:-} ${2:-} ${3:-}" in
     exit "${FAKE_BREW_FORMULA_LIST_STATUS:-0}"
     ;;
   'list --cask ')
-    printf '%s\n' "${FAKE_CASK_LIST:-codex-app}"
+    printf '%s\n' "${FAKE_CASK_LIST:-chatgpt}"
     exit "${FAKE_BREW_CASK_LIST_STATUS:-0}"
     ;;
   'bundle list --all') exit "${FAKE_BREW_BUNDLE_LIST_STATUS:-0}" ;;
@@ -195,7 +193,7 @@ assert_contains 'pinned-brew <bundle> <list> <--all>' "$log_file"
 assert_contains 'pinned-brew <list> <--formula>' "$log_file"
 assert_contains 'pinned-brew <list> <--cask>' "$log_file"
 assert_contains 'pinned-brew <info> <--json=v2> <--formula> <--> <openssl@3>' "$log_file"
-assert_contains 'pinned-brew <info> <--json=v2> <--cask> <--> <codex-app>' "$log_file"
+assert_contains 'pinned-brew <info> <--json=v2> <--cask> <--> <chatgpt>' "$log_file"
 assert_contains 'pinned-brew <bundle> <check> <--verbose> <--no-upgrade>' "$log_file"
 assert_contains 'pinned-brew <bundle> <cleanup> <--all> <--zap> <--file=' "$log_file"
 assert_not_contains '<--formula> <--cask> <--tap> <--zap>' "$log_file"
@@ -266,9 +264,9 @@ fi
 assert_not_contains 'pinned-brew <list> <--formula>' "$log_file"
 
 : >"$log_file"
-if FAKE_BREWFILE_MODE=missing-codex NIX_CONFIG_TEST_SYSTEM=Darwin \
+if FAKE_BREWFILE_MODE=missing-chatgpt NIX_CONFIG_TEST_SYSTEM=Darwin \
   "$repo_root/config/nix-config/nix-config-preflight" >/dev/null 2>&1; then
-  fail 'missing codex-app unexpectedly succeeded'
+  fail 'missing chatgpt unexpectedly succeeded'
 fi
 assert_not_contains 'pinned-brew <info> <--json=v2> <--cask>' "$log_file"
 

@@ -39,8 +39,8 @@ in
     enable = true;
     prefix = "/opt/homebrew";
 
-    # Updates happen only by changing flake.lock. Activation upgrades the
-    # declared packages to the versions provided by those locked tap sources.
+    # Homebrew uses locked tap definitions. App-owned updaters and the App
+    # Store can still change native apps independently of this lockfile.
     global.autoUpdate = false;
     onActivation = {
       autoUpdate = false;
@@ -117,7 +117,6 @@ in
       "blender"
       "ultrastardeluxe"
       "codex"
-      "codex-app"
       "silverstein/tap/minutes"
       "visual-studio-code"
       "slack"
@@ -135,10 +134,6 @@ in
   };
 
   assertions = [
-    {
-      assertion = builtins.elem "codex-app" caskNames;
-      message = "The Homebrew manifest must retain the codex-app cask.";
-    }
     {
       assertion = builtins.elem "chatgpt" caskNames;
       message = "The Homebrew manifest must retain the chatgpt cask.";
