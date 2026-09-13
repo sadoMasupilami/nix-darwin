@@ -47,7 +47,7 @@ Er baut die Konfiguration, wertet ein nicht leeres Brewfile aus, schützt
 `chatgpt` und Minutes, parst alle installierten Formeln und Casks,
 prüft Homebrew Bundle und zeigt mit `--all --zap` die geplante Bereinigung ohne
 `--force`. Dafür verwendet er bereits das aus dem gemeinsamen Lockfile gebaute
-Homebrew 6.0.15 und nicht die eventuell noch ältere Live-Installation. Der
+Homebrew und nicht die eventuell noch ältere Live-Installation. Der
 Preflight führt weder Upgrades noch Löschungen oder eine Aktivierung aus.
 
 ### Einmaliger Wechsel auf unveränderliche Taps
@@ -115,7 +115,7 @@ Versionen können davon unabhängig sein. Nix-Rollbacks rollen diese Apps nicht
 zurück.
 
 Die gewählte Homebrew-Politik bleibt `autoUpdate = false`, `upgrade = true` und
-`cleanup = "zap"`. Homebrew selbst ist auf 6.0.15 gepinnt. `chatgpt` ist der
+`cleanup = "zap"`. Die Homebrew-Version wird aus `flake.lock` abgeleitet. `chatgpt` ist der
 [aktuelle Desktop-Weg mit integriertem Codex](https://learn.chatgpt.com/docs/app).
 Das Verhalten der unforced Cleanup-Vorschau entspricht der
 [Homebrew-Manpage](https://docs.brew.sh/Manpage.html).
