@@ -104,7 +104,7 @@ require_brewfile_entry() {
 
 # These applications are an explicit retention boundary for cleanup=zap.
 require_brewfile_entry 'cask "chatgpt", trusted: true'
-require_brewfile_entry 'cask "silverstein/tap/minutes", trusted: true'
+require_brewfile_entry 'cask "silverstein/tap/minutes", args: { appdir: "/Applications" }, trusted: true'
 
 if grep -Fqx 'brew "mas", trusted: true' "$brewfile" \
   || grep -Fqx 'brew "docker-credential-helper", trusted: true' "$brewfile"; then
@@ -115,6 +115,26 @@ fi
 printf 'Parsing the generated Brewfile with Homebrew Bundle...\n'
 HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle list \
   --all --file="$brewfile" >/dev/null
+
+printf 'Checking declared formulae against their installed taps...\n'
+# `brew info` can prefer the installed receipt, while `brew install` resolves
+# a bare name through Core aliases. Load the install definition explicitly
+# and compare receipts without invoking install (even its dry-run can write
+# installed_on_request metadata).
+HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" ruby -e '
+  require "bundle/dsl"
+  require "formulary"
+  Homebrew::Bundle::Dsl.new(Pathname(ARGV.fetch(0))).entries.each do |entry|
+    next unless entry.type == :brew
+    formula = Formulary.factory(entry.name)
+    installed_tap = formula.any_installed_keg&.tab&.tap&.name
+    declared_tap = formula.tap&.name
+    next unless installed_tap && declared_tap && installed_tap != declared_tap
+    abort "error: Brewfile formula #{entry.name} resolves to #{formula.full_name}, " \
+          "but the installed formula belongs to #{installed_tap}. " \
+          "Use the intended fully qualified tap/formula name in homebrew.brews."
+  end
+' -- "$brewfile"
 
 formula_list="$tmp_dir/installed-formulae"
 cask_list="$tmp_dir/installed-casks"
@@ -175,6 +195,12 @@ cleanup_status=0
 HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle cleanup \
   --all --zap --file="$brewfile" </dev/null >"$tmp_dir/cleanup.txt" 2>&1 || cleanup_status=$?
 cat "$tmp_dir/cleanup.txt"
+
+# Homebrew 6.0.20 exits zero when only old versions/cache files would be
+# removed. Its exit status alone does not mean the preview is empty.
+if [[ "$cleanup_status" == 0 ]] && grep -q '^Would ' "$tmp_dir/cleanup.txt"; then
+  cleanup_status=1
+fi
 
 case "$cleanup_status" in
   0)

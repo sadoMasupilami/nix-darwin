@@ -37,6 +37,9 @@ export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_ENV_HINTS=1
 export HOMEBREW_NO_INSTALL_FROM_API=1
+# The read-only tap check uses `brew ruby`. Keep its developer-command marker
+# disposable too, without a misleading warning or a git-config write.
+export HOMEBREW_DEV_CMD_RUN=1
 # mas 7 otherwise invokes mdimport while merely checking Bundle state. Keep
 # the promised preflight read-only; a real activation may still index/install.
 export MAS_NO_AUTO_INDEX=1
