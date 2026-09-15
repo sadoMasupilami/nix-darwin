@@ -114,7 +114,12 @@ nix-config-apply [--gc] [--accept-zap HASH]
   diesen Stand, auch wenn der Checkout inzwischen geändert wird. Ein sauberer
   Checkout gibt seinen Commit als `configurationRevision` an die Generation
   weiter; ein Checkout mit lokalen Änderungen bleibt unbeschriftet.
-- Ein nicht leerer Zap-Preview stoppt mit Exitcode 3. Nach Prüfung der Liste
+- Der Preflight vergleicht deklarierte Formula-Taps mit den installierten
+  Receipts, damit Alias-Konflikte vor der Aktivierung auffallen. `azd` bleibt
+  explizit `azure/azd/azd`; Minutes verwendet wegen des gleichnamigen Formula-
+  Eintrags einen separaten Cask-Installationspfad.
+- Ein nicht leerer Zap-Preview (auch nur alte Versionen oder Cache-Dateien)
+  stoppt mit Exitcode 3. Nach Prüfung der Liste
   kann `nix-config-apply --accept-zap HASH` mit dem ausgegebenen Hash ausgeführt
   werden. Die Freigabe gilt nur für genau diese Liste und diesen Snapshot;
   geänderte Dateien oder eine andere Entfernungsliste benötigen eine neue

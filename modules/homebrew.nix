@@ -68,7 +68,9 @@ in
     # Bundle's strict `cleanup --all --zap` otherwise proposes removing them
     # even though Ollama needs them at runtime.
     brews = [
-      "azd"
+      # Core also defines an `azd` alias for azure-dev. Keep using the tap
+      # recorded in the installed formula's receipt during Bundle upgrades.
+      "azure/azd/azd"
       "ca-certificates"
       "lz4"
       "mlx"
@@ -117,7 +119,12 @@ in
       "blender"
       "ultrastardeluxe"
       "codex"
-      "silverstein/tap/minutes"
+      {
+        name = "silverstein/tap/minutes";
+        # Homebrew 6.0.20 batches plain casks with formulae and resolves this
+        # shared name as a formula. Per-cask args retain the --cask path.
+        args.appdir = "/Applications";
+      }
       "visual-studio-code"
       "slack"
       "tigervnc"

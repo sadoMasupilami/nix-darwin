@@ -75,12 +75,12 @@ if [[ " $* " == *' eval '* ]]; then
   elif [[ "${FAKE_BREWFILE_MODE:-complete}" == missing-chatgpt ]]; then
     printf '%s\n' \
       '# Created by `nix-darwin`'"'"'s `homebrew` module' \
-      'cask "silverstein/tap/minutes", trusted: true'
+      'cask "silverstein/tap/minutes", args: { appdir: "/Applications" }, trusted: true'
   else
     printf '%s\n' \
       '# Created by `nix-darwin`'"'"'s `homebrew` module' \
       'cask "chatgpt", trusted: true' \
-      'cask "silverstein/tap/minutes", trusted: true'
+      'cask "silverstein/tap/minutes", args: { appdir: "/Applications" }, trusted: true'
   fi
 fi
 
@@ -103,6 +103,7 @@ printf ' <%s>' "$@" >>"$FAKE_COMMAND_LOG"
 printf '\n' >>"$FAKE_COMMAND_LOG"
 
 case "${1:-} ${2:-} ${3:-}" in
+  'ruby -e '*) exit "${FAKE_BREW_TAP_CHECK_STATUS:-0}" ;;
   '--version  ')
     printf '%s\n' "${FAKE_BREW_VERSION_OUTPUT:-Homebrew 6.0.15}"
     exit "${FAKE_BREW_VERSION_STATUS:-0}"
@@ -123,7 +124,11 @@ case "${1:-} ${2:-} ${3:-}" in
   'bundle list --all') exit "${FAKE_BREW_BUNDLE_LIST_STATUS:-0}" ;;
   'bundle check --verbose') exit "${FAKE_BREW_CHECK_STATUS:-0}" ;;
   'bundle cleanup --all')
-    printf 'Would uninstall casks:\n%s\n' "${FAKE_CLEANUP_ITEM:-example}"
+    if [[ "${FAKE_CLEANUP_OLD_VERSIONS:-0}" == 1 ]]; then
+      printf 'Would `brew cleanup`:\nWould remove: /opt/homebrew/Cellar/example/1.0\n'
+    elif [[ "${FAKE_BREW_CLEANUP_STATUS:-0}" == 1 ]]; then
+      printf 'Would uninstall casks:\n%s\n' "${FAKE_CLEANUP_ITEM:-example}"
+    fi
     exit "${FAKE_BREW_CLEANUP_STATUS:-0}"
     ;;
 esac
@@ -277,6 +282,15 @@ fi
 assert_not_contains 'pinned-brew <list> <--formula>' "$log_file"
 
 : >"$log_file"
+if FAKE_BREW_TAP_CHECK_STATUS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" >/dev/null 2>&1; then
+  fail 'formula tap conflict unexpectedly passed preflight'
+fi
+assert_contains 'pinned-brew <ruby> <-e>' "$log_file"
+assert_not_contains 'pinned-brew <bundle> <check>' "$log_file"
+assert_not_contains 'sudo' "$log_file"
+
+: >"$log_file"
 if FAKE_BREWFILE_MODE=missing-chatgpt NIX_CONFIG_TEST_SYSTEM=Darwin \
   "$repo_root/config/nix-config/nix-config-preflight" >/dev/null 2>&1; then
   fail 'missing chatgpt unexpectedly succeeded'
@@ -305,6 +319,20 @@ assert_not_contains '<check>' "$log_file"
 assert_not_contains '<run>' "$log_file"
 
 # Approval must match the actual cleanup list and checked source snapshot.
+: >"$log_file"
+if FAKE_CLEANUP_OLD_VERSIONS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" >"$fixture/old-versions.out" 2>"$fixture/old-versions.err"; then
+  fail 'zero-exit preview with old-version removals unexpectedly applied'
+fi
+assert_not_contains 'Cleanup preview is empty.' "$fixture/old-versions.out"
+assert_not_contains 'sudo' "$log_file"
+old_versions_approval=$(sed -n 's/.*--accept-zap \([a-f0-9]*\)$/\1/p' "$fixture/old-versions.err")
+[[ ${#old_versions_approval} == 64 ]] || fail 'missing old-version cleanup approval token'
+: >"$log_file"
+FAKE_CLEANUP_OLD_VERSIONS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
+  "$repo_root/config/nix-config/nix-config-apply" --accept-zap "$old_versions_approval" >/dev/null
+assert_contains 'sudo' "$log_file"
+
 : >"$log_file"
 if FAKE_BREW_CLEANUP_STATUS=1 NIX_CONFIG_TEST_SYSTEM=Darwin \
   "$repo_root/config/nix-config/nix-config-apply" >"$fixture/zap.out" 2>"$fixture/zap.err"; then
