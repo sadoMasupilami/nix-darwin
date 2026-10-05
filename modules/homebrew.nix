@@ -99,7 +99,7 @@ in
       "windows-app"
       "chatgpt"
       "claude"
-      "claude-code"
+      "claude-code@latest"
       "google-chrome"
       "ghostty"
       "raycast"

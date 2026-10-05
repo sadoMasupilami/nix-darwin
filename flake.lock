@@ -34,6 +34,22 @@
         "type": "github"
       }
     },
+    "claude-code-playground": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790871117,
+        "narHash": "sha256-rOT2rtXNPayZQEkd2Gbr+9dxClaloxAOoOlDcZp3VQY=",
+        "owner": "anthropics",
+        "repo": "claude-code-playground",
+        "rev": "569c5283d9a0a7ee7938df85bb32e4f48cbb8c86",
+        "type": "github"
+      },
+      "original": {
+        "owner": "anthropics",
+        "repo": "claude-code-playground",
+        "type": "github"
+      }
+    },
     "determinate": {
       "inputs": {
         "determinate-nixd-aarch64-darwin": "determinate-nixd-aarch64-darwin",
@@ -372,6 +388,7 @@
     },
     "root": {
       "inputs": {
+        "claude-code-playground": "claude-code-playground",
         "determinate": "determinate",
         "home-manager": "home-manager",
         "homebrew-azd": "homebrew-azd",
