@@ -124,10 +124,38 @@ nix-config-apply [--gc] [--accept-zap HASH]
   werden. Die Freigabe gilt nur für genau diese Liste und diesen Snapshot;
   geänderte Dateien oder eine andere Entfernungsliste benötigen eine neue
   Freigabe. Während des Apply keine parallelen Homebrew-Änderungen vornehmen.
-- Garbage Collection erfolgt nur mit `nix-config-apply --gc`, weiterhin ohne
-  Löschen alter Generationen. Ein separates `mas upgrade` gibt es nicht mehr.
+- `nix-config-apply --gc` führt ein vollständiges `nix-collect-garbage` aus,
+  weiterhin ohne Löschen alter Generationen und ohne Schonfrist für kürzlich
+  entstandene Pfade (siehe unten). Ein separates `mas upgrade` gibt es nicht mehr.
 - Neue Quelldateien müssen vor dem Preflight mit `git add` getrackt werden;
   ignorierte und ungetrackte Dateien gehören bewusst nicht zum Snapshot.
+
+## Automatische Garbage Collection
+
+Der Determinate-Nixd-eigene Collector ist abgeschaltet
+(`garbageCollector.strategy = "disabled"`), weil er keine Aufbewahrungsfrist
+kennt. An seiner Stelle prüft der LaunchDaemon `nix-gc-recent`
+(`modules/nix-gc.nix`, Skript in `config/nix-gc/`) stündlich den freien Platz auf
+`/nix`:
+
+- Ab 20 % frei passiert nichts.
+- Darunter wird `nix-store --gc` ausgeführt, aber unerreichbare Store-Pfade, die
+  jünger als 14 Tage sind, bleiben samt ihren Abhängigkeiten erhalten. Dafür
+  legt das Skript für die Dauer des Laufs temporäre GC-Roots unter
+  `/nix/var/nix/gcroots/nix-gc-recent` an.
+- Unter 5 % frei entfällt die Schonfrist, damit eine fast volle Platte die
+  Bereinigung nicht blockiert.
+
+`/nix` ist mit `noatime` eingehängt, ein Pfad trägt also nur den Zeitpunkt seiner
+Registrierung. Die Schonfrist schützt daher kürzlich gebaute oder geladene Pfade,
+nicht kürzlich ausgeführte. Protokoll: `/var/log/nix-gc-recent.log`. Prüfen ohne
+Root und ohne Änderung:
+
+```bash
+nix-gc-recent --force --dry-run
+```
+
+Schonfrist und Schwellen stehen oben in `modules/nix-gc.nix`.
 
 Homebrew-Casks und App-Store-Apps bleiben bewusst nativ verwaltet. Gepinnte
 Tap-Quellen fixieren die Paketdefinitionen; App-eigene Updater und App-Store-

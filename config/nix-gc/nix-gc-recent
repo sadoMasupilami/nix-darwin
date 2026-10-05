@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Collects garbage only when the Nix store volume runs low on space and spares
+# unreachable store paths younger than NIX_GC_MIN_AGE_DAYS. Below
+# NIX_GC_URGENT_BELOW_FREE_PERCENT the age protection is dropped, so a nearly
+# full disk can never block collection.
+#
+# The volume is mounted noatime, so a path's atime is the moment Nix registered
+# it: this protects recently built or fetched paths, not recently executed ones.
+#
+# usage: nix-gc-recent [--force] [--dry-run]
+#   --force    collect even if enough space is free
+#   --dry-run  report what would be protected; needs no root, changes nothing
+
+min_age_days=${NIX_GC_MIN_AGE_DAYS:-14}
+start_below=${NIX_GC_START_BELOW_FREE_PERCENT:-20}
+urgent_below=${NIX_GC_URGENT_BELOW_FREE_PERCENT:-5}
+roots_dir=${NIX_GC_ROOTS_DIR:-/nix/var/nix/gcroots/nix-gc-recent}
+volume=${NIX_GC_VOLUME:-/nix}
+
+force=false
+dry_run=false
+for arg in "$@"; do
+  case "$arg" in
+    --force) force=true ;;
+    --dry-run) dry_run=true ;;
+    *)
+      echo 'usage: nix-gc-recent [--force] [--dry-run]' >&2
+      exit 2
+      ;;
+  esac
+done
+
+if [[ "$dry_run" == false && "$(id -u)" != 0 ]]; then
+  echo 'nix-gc-recent: must run as root (use --dry-run to inspect)' >&2
+  exit 1
+fi
+
+free_percent() {
+  df -Pk "$volume" | awk 'NR == 2 { printf "%d", $4 * 100 / $2 }'
+}
+
+before=$(free_percent)
+if [[ "$force" == false ]] && (( before >= start_below )); then
+  exit 0
+fi
+echo "nix-gc-recent: $before% free on $volume"
+
+protect_days=$min_age_days
+if (( before < urgent_below )); then
+  protect_days=0
+  echo "nix-gc-recent: below $urgent_below% free, ignoring age protection"
+fi
+cutoff=$(( $(date +%s) - protect_days * 86400 ))
+
+tmp=$(mktemp -d)
+cleanup() {
+  rm -rf -- "$tmp"
+  if [[ "$dry_run" == false ]]; then
+    rm -rf -- "${roots_dir:?}"
+  fi
+}
+trap cleanup EXIT
+
+# Roots left behind by an interrupted run would skew the dead-path list.
+if [[ "$dry_run" == false ]]; then
+  rm -rf -- "${roots_dir:?}"
+  mkdir -p -- "$roots_dir"
+fi
+
+nix-store --gc --print-dead >"$tmp/dead"
+xargs -r -d '\n' stat -c '%X %n' <"$tmp/dead" \
+  | awk -v cutoff="$cutoff" '$1 >= cutoff { sub(/^[0-9]+ /, ""); print }' >"$tmp/recent"
+
+echo "nix-gc-recent: sparing $(wc -l <"$tmp/recent") of $(wc -l <"$tmp/dead") unreachable paths younger than $protect_days days"
+
+if [[ "$dry_run" == true ]]; then
+  echo 'nix-gc-recent: dry run, nothing collected'
+  exit 0
+fi
+
+# A symlink into the store below gcroots keeps the path and its references
+# alive, which also protects the dependencies of recent paths.
+while IFS= read -r path; do
+  ln -s -- "$path" "$roots_dir/${path##*/}"
+done <"$tmp/recent"
+
+nix-store --gc
+echo "nix-gc-recent: $(free_percent)% free on $volume after collection"
