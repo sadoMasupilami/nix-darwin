@@ -1,5 +1,6 @@
 {
   imports = [
+    ./modules/claude-mods.nix
     ./modules/packages.nix
     ./modules/shell.nix
     ./modules/ssh.nix

@@ -199,6 +199,24 @@ homeConfigurations.default
 homeConfigurations.michaelklug
 ```
 
+## Claude-Mods
+
+Der Flake-Input `claude-code-playground` pinnt die offiziellen Sample-Mods von
+Anthropic in `flake.lock`. [`modules/claude-mods.nix`](modules/claude-mods.nix)
+verlinkt `token-weather` (Kontextfenster-Prognose über dem Prompt) und
+`blast-radius` (hält riskante Shell-Befehle an und zeigt vorab, was sie ändern
+würden) nach `~/.claude/skills`. Claude Code lädt diese Ordner in jeder Session
+automatisch als Plugin `<name>@skills-dir`; `~/.claude/settings.json` bleibt
+unangetastet.
+
+Mods brauchen Claude Code ab 2.1.287. Dafür installiert Homebrew das Cask
+`claude-code@latest` statt des langsameren Stable-Casks `claude-code`. Mods
+laufen mit den eigenen Rechten und ohne Sandbox. Vor einem Pin-Update
+`claude plugin validate` auf die neuen Store-Pfade anwenden und die `hooks:`-
+und `calls:`-Zeilen prüfen. Update mit `nix flake update claude-code-playground`
+oder `nix-config-update all`, danach Preflight und Apply. Kontrolle mit
+`claude plugin list`.
+
 ## Lokale Meeting-Transkription
 
 Auf Apple Silicon installiert Home Manager die Befehle `qwen-meeting` und

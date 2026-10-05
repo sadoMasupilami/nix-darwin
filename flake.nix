@@ -14,6 +14,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Sample mods for Claude Code, versioned alongside the rest of the environment.
+    claude-code-playground = {
+      url = "github:anthropics/claude-code-playground";
+      flake = false;
+    };
+
     nix-homebrew.url = "github:zhaofengli/nix-homebrew";
     determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
 
@@ -293,6 +299,7 @@
         ];
         extraSpecialArgs = {
           inherit username;
+          claudeModsSource = inputs.claude-code-playground;
           homeDirectory = linuxHomeDirectory;
           repoDirectory = linuxRepoDirectory;
         };
@@ -358,6 +365,7 @@
               useUserPackages = true;
               extraSpecialArgs = {
                 inherit username;
+                claudeModsSource = inputs.claude-code-playground;
                 inherit (machineConfig.darwin)
                   homeDirectory
                   hostName
