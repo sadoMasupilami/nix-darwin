@@ -44,11 +44,13 @@ export HOMEBREW_DEV_CMD_RUN=1
 # the promised preflight read-only; a real activation may still index/install.
 export MAS_NO_AUTO_INDEX=1
 
-# The disposable library contains only the four locked declarative taps. This
-# emulates the two explicit trust entries that activation will persist, without
-# writing a trust database during a read-only preflight. Formula and cask
-# definitions are loaded exclusively from those pinned local checkouts.
-export HOMEBREW_NO_REQUIRE_TAP_TRUST=1
+# The disposable library contains only the four locked declarative taps. Seed
+# the disposable config with the explicit tap trust entries that activation
+# will persist, instead of reading or writing the real trust database. Formula
+# and cask definitions are loaded exclusively from those pinned local checkouts.
+/bin/mkdir -p "$work_dir/config/homebrew"
+/bin/cp "@trustStore@" "$work_dir/config/homebrew/trust.json"
+/bin/chmod 600 "$work_dir/config/homebrew/trust.json"
 
 # nix-homebrew 0.3.1's upstream patch still targets the pre-6.0 assignment
 # layout in brew.sh. Seed the exact locked version explicitly so Homebrew does
