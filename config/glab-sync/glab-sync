@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Clones every non-archived project of a GitLab group (including subgroups) over
+# HTTPS and fast-forwards the ones already present. Projects land at their full
+# namespace path below DIR, like `glab repo clone -g GROUP --preserve-namespace`,
+# so the command runs from the folder that holds the group, not inside it.
+#
+# Authentication goes through glab (`glab auth git-credential`), so no separate
+# git credentials are needed. Clones keep that helper in their local config.
+#
+# usage: glab-sync [-d DIR] GROUP
+#   GROUP   group path, subgroups allowed (e.g. "group/subgroup")
+#   -d DIR  base directory for the clones (default: current directory)
+#
+# The GitLab host is glab's default host; set GITLAB_HOST to use another one.
+
+usage() {
+  echo 'usage: glab-sync [-d DIR] GROUP' >&2
+  exit 2
+}
+
+base=.
+while getopts ':d:h' opt; do
+  case "$opt" in
+    d) base=$OPTARG ;;
+    *) usage ;;
+  esac
+done
+shift $((OPTIND - 1))
+[[ $# -eq 1 ]] || usage
+group=${1%/}
+
+cd "$base" || exit 1
+
+credential_config=(-c credential.helper= -c 'credential.helper=!glab auth git-credential')
+
+encoded=$(printf %s "$group" | jq -sRr @uri)
+if ! projects=$(glab api --paginate \
+  "groups/$encoded/projects?include_subgroups=true&archived=false&per_page=100" |
+  jq -r '.[] | "\(.path_with_namespace) \(.http_url_to_repo)"'); then
+  echo "glab-sync: could not list projects of group '$group'" >&2
+  exit 1
+fi
+
+cloned=0
+pulled=0
+failed=0
+
+# </dev/null keeps git and its credential helper from consuming the project list.
+while read -r path url; do
+  [[ -n "$path" ]] || continue
+  if [[ -d "$path/.git" ]]; then
+    echo "↻ $path"
+    if git "${credential_config[@]}" -C "$path" pull --ff-only --quiet </dev/null; then
+      pulled=$((pulled + 1))
+    else
+      echo "⚠ $path: pull failed" >&2
+      failed=$((failed + 1))
+    fi
+  elif [[ -e "$path" ]]; then
+    echo "⚠ $path: exists but is not a git repository" >&2
+    failed=$((failed + 1))
+  else
+    echo "⤓ $path"
+    if git clone --quiet "${credential_config[@]}" "$url" "$path" </dev/null; then
+      cloned=$((cloned + 1))
+    else
+      echo "⚠ $path: clone failed" >&2
+      failed=$((failed + 1))
+    fi
+  fi
+done <<<"$projects"
+
+echo "glab-sync: $cloned cloned, $pulled updated, $failed failed"
+[[ $failed -eq 0 ]]
