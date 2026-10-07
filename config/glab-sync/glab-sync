@@ -3,24 +3,95 @@ set -uo pipefail
 
 # Clones every non-archived project of a GitLab group (including subgroups) over
 # HTTPS and fast-forwards the ones already present. Projects land at their full
-# namespace path below DIR, like `glab repo clone -g GROUP --preserve-namespace`,
-# so the command runs from the folder that holds the group, not inside it.
+# namespace path below a base directory, like
+# `glab repo clone -g GROUP --preserve-namespace`.
 #
 # Authentication goes through glab (`glab auth git-credential`), so no separate
 # git credentials are needed. Clones keep that helper in their local config.
 #
-# usage: glab-sync [-d DIR] GROUP
+# usage: glab-sync [-d DIR] [GROUP]
 #   GROUP   group path, subgroups allowed (e.g. "group/subgroup")
-#   -d DIR  base directory for the clones (default: current directory)
+#   -d DIR  base directory: the folder that holds the group's top-level folder
 #
-# The GitLab host is glab's default host; set GITLAB_HOST to use another one.
+# Without -d the base comes from the current directory. If its path already
+# ends with (the start of) GROUP, e.g. running `glab-sync a/b/c` inside .../a/b,
+# that part is not created a second time. Otherwise it is the current directory.
+#
+# Without GROUP the current directory must be a group folder holding clones: the
+# group is read from the origin URL of the first clone found below it.
+#
+# The GitLab host is glab's default host, or for a GROUP read from a clone, the
+# host of its https origin. Set GITLAB_HOST to override either.
 
 usage() {
-  echo 'usage: glab-sync [-d DIR] GROUP' >&2
+  echo 'usage: glab-sync [-d DIR] [GROUP]' >&2
   exit 2
 }
 
-base=.
+# Sets url_host and url_path to the host and namespace path of an https, ssh://
+# or scp-like git URL. url_host stays empty unless the URL is http(s), since ssh
+# hosts may be ssh_config aliases.
+remote_location() {
+  local url=$1 host='' path
+  case "$url" in
+    http://* | https://*)
+      url=${url#*://}
+      host=${url%%/*}
+      host=${host##*@}
+      path=${url#*/}
+      ;;
+    *://*)
+      url=${url#*://}
+      path=${url#*/}
+      ;;
+    *:*) path=${url#*:} ;;
+    *) return 1 ;;
+  esac
+  path=${path%/}
+  url_host=$host
+  url_path=${path%.git}
+}
+
+# Sets group and remote_host from the shallowest clone below the current
+# directory whose origin path ends with its relative location, so the folders
+# mirror the namespace. Searches level by level so it never walks into large
+# working trees before checking the shallower clones.
+infer_group() {
+  local depth git_dir rel url url_host url_path prefix
+  for depth in 2 3 4 5 6 7 8; do
+    while IFS= read -r -d '' git_dir; do
+      rel=${git_dir#./}
+      rel=${rel%/.git}
+      url=$(git -C "$rel" remote get-url origin 2>/dev/null) || continue
+      remote_location "$url" || continue
+      [[ "$url_path" == */"$rel" ]] || continue
+      prefix=${url_path%/"$rel"}
+      [[ "$PWD" == */"$prefix" ]] || continue
+      group=$prefix
+      remote_host=$url_host
+      return 0
+    done < <(find . -mindepth "$depth" -maxdepth "$depth" -name .git -print0 2>/dev/null)
+  done
+  return 1
+}
+
+# Strips the longest leading part of GROUP that the current directory already
+# ends with, so running inside (part of) the group's folder does not nest it.
+base_from_pwd() {
+  local -a parts
+  local k prefix
+  IFS=/ read -ra parts <<<"$group"
+  for ((k = ${#parts[@]}; k > 0; k--)); do
+    prefix=$(IFS=/ && echo "${parts[*]:0:k}")
+    if [[ "$PWD" == */"$prefix" ]]; then
+      echo "${PWD%/"$prefix"}"
+      return
+    fi
+  done
+  echo "$PWD"
+}
+
+base=''
 while getopts ':d:h' opt; do
   case "$opt" in
     d) base=$OPTARG ;;
@@ -28,10 +99,30 @@ while getopts ':d:h' opt; do
   esac
 done
 shift $((OPTIND - 1))
-[[ $# -eq 1 ]] || usage
-group=${1%/}
+[[ $# -le 1 ]] || usage
 
-cd "$base" || exit 1
+group=''
+remote_host=''
+if [[ $# -eq 1 ]]; then
+  group=${1%/}
+  group=${group#/}
+elif [[ -n "$base" ]]; then
+  echo 'glab-sync: -d needs a GROUP' >&2
+  usage
+elif ! infer_group; then
+  echo 'glab-sync: no GROUP given and none found from the clones below this folder' >&2
+  echo '  run it inside a group folder that holds clones, or pass GROUP' >&2
+  exit 2
+fi
+[[ -n "$group" ]] || usage
+
+if [[ -n "$remote_host" && -z "${GITLAB_HOST:-}" ]]; then
+  export GITLAB_HOST=$remote_host
+fi
+
+[[ -n "$base" ]] || base=$(base_from_pwd)
+mkdir -p "$base" && cd "$base" || exit 1
+echo "glab-sync: $group → $PWD/$group"
 
 credential_config=(-c credential.helper= -c 'credential.helper=!glab auth git-credential')
 
@@ -50,7 +141,7 @@ failed=0
 # </dev/null keeps git and its credential helper from consuming the project list.
 while read -r path url; do
   [[ -n "$path" ]] || continue
-  if [[ -d "$path/.git" ]]; then
+  if [[ -e "$path/.git" ]]; then
     echo "↻ $path"
     if git "${credential_config[@]}" -C "$path" pull --ff-only --quiet </dev/null; then
       pulled=$((pulled + 1))
