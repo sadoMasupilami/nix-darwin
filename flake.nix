@@ -217,6 +217,10 @@
           {
             inherit activation;
             wrapperTemplate = ./config/nix-config/homebrew-preflight-wrapper.sh.in;
+            # Same tap trust entries that nix-homebrew persists on activation.
+            trustStore = pkgs.writeText "homebrew-preflight-trust.json" (
+              builtins.toJSON { trustedtaps = darwinConfiguration.config.nix-homebrew.trust.taps; }
+            );
           }
           ''
             setup_script=$(grep -Eo '/nix/store/[a-z0-9]{32}-setup-homebrew' "$activation" | head -n 1)
@@ -272,12 +276,13 @@
               --replace-fail "$old_brew_file_line" \
                 "export HOMEBREW_BREW_FILE=\"$out/bin/brew\"" \
               --replace-fail '  HOMEBREW_BREW_FILE' \
-                '  HOMEBREW_BREW_FILE HOMEBREW_CACHE HOMEBREW_LOGS HOMEBREW_TEMP HOMEBREW_NO_ANALYTICS HOMEBREW_NO_AUTO_UPDATE HOMEBREW_NO_ENV_HINTS HOMEBREW_NO_INSTALL_FROM_API HOMEBREW_NO_REQUIRE_TAP_TRUST HOMEBREW_VERSION MAS_NO_AUTO_INDEX HOMEBREW_DEV_CMD_RUN'
+                '  HOMEBREW_BREW_FILE HOMEBREW_CACHE HOMEBREW_LOGS HOMEBREW_TEMP HOMEBREW_NO_ANALYTICS HOMEBREW_NO_AUTO_UPDATE HOMEBREW_NO_ENV_HINTS HOMEBREW_NO_INSTALL_FROM_API HOMEBREW_VERSION MAS_NO_AUTO_INDEX HOMEBREW_DEV_CMD_RUN'
 
             substitute "$wrapperTemplate" "$out/bin/brew" \
               --replace-fail '@brewCode@' "$preflight_brew" \
               --replace-fail '@brewVersion@' ${nixpkgs.lib.escapeShellArg homebrewVersion} \
               --replace-fail '@taps@' "$taps" \
+              --replace-fail '@trustStore@' "$trustStore" \
               --replace-fail '@innerWrapper@' "$out/libexec/brew"
             chmod 0555 "$out/bin/brew" "$out/libexec/brew"
 
