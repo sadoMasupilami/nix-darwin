@@ -101,6 +101,7 @@ in
       "claude"
       "claude-code@latest"
       "google-chrome"
+      "google-drive"
       "ghostty"
       "raycast"
       "brave-browser"
