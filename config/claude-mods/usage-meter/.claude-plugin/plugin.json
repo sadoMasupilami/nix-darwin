@@ -1,0 +1,6 @@
+{
+  "name": "usage-meter",
+  "version": "0.1.0",
+  "description": "Shows the 5h and 7d rate-limit windows and the session cost in the status line, with a /usage-meter pane and a toast when a window runs hot.",
+  "types": "./types/index.d.ts"
+}

@@ -205,9 +205,13 @@ Der Flake-Input `claude-code-playground` pinnt die offiziellen Sample-Mods von
 Anthropic in `flake.lock`. [`modules/claude-mods.nix`](modules/claude-mods.nix)
 verlinkt `token-weather` (Kontextfenster-Prognose über dem Prompt) und
 `blast-radius` (hält riskante Shell-Befehle an und zeigt vorab, was sie ändern
-würden) nach `~/.claude/skills`. Claude Code lädt diese Ordner in jeder Session
-automatisch als Plugin `<name>@skills-dir`; `~/.claude/settings.json` bleibt
-unangetastet.
+würden) nach `~/.claude/skills`. Dazu kommt der eigene Mod `usage-meter` aus
+[`config/claude-mods/usage-meter/`](config/claude-mods/usage-meter/): Er zeigt
+die Rate-Limit-Fenster (5h, 7d) und die Session-Kosten in der Statuszeile, mit
+`/usage-meter` als Pane mit Balken und Reset-Zeiten, und warnt per Toast ab 80 %
+und 95 %. Claude Code lädt diese Ordner in jeder Session automatisch als Plugin
+`<name>@skills-dir`; `~/.claude/settings.json` bleibt unangetastet. Tests für
+den eigenen Mod: `claude plugin test config/claude-mods/usage-meter`.
 
 Mods brauchen Claude Code ab 2.1.287. Dafür installiert Homebrew das Cask
 `claude-code@latest` statt des langsameren Stable-Casks `claude-code`. Mods
