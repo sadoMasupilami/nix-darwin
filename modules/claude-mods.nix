@@ -7,4 +7,6 @@
     "${claudeModsSource}/claude-code/mods/token-weather";
   home.file.".claude/skills/blast-radius".source =
     "${claudeModsSource}/claude-code/mods/blast-radius";
+  # Own mod, kept in this repo: rate-limit windows and session cost.
+  home.file.".claude/skills/usage-meter".source = ../config/claude-mods/usage-meter;
 }
