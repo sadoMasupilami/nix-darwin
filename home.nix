@@ -1,5 +1,6 @@
 {
   imports = [
+    ./modules/claude.nix
     ./modules/claude-mods.nix
     ./modules/glab-sync.nix
     ./modules/packages.nix
