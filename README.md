@@ -199,6 +199,13 @@ homeConfigurations.default
 homeConfigurations.michaelklug
 ```
 
+## Claude-Code-Anweisungen
+
+[`modules/claude.nix`](modules/claude.nix) verlinkt
+[`config/claude/CLAUDE.md`](config/claude/CLAUDE.md) nach `~/.claude/CLAUDE.md`.
+Claude Code lädt die Datei in jeder Session. Sie sagt Claude, dass fehlende Tools
+per `nix shell nixpkgs#<paket>` geholt werden statt global installiert.
+
 ## Claude-Mods
 
 Der Flake-Input `claude-code-playground` pinnt die offiziellen Sample-Mods von
