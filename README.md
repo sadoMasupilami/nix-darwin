@@ -210,9 +210,9 @@ per `nix shell nixpkgs#<paket>` geholt werden statt global installiert.
 
 Der Flake-Input `claude-code-playground` pinnt die offiziellen Sample-Mods von
 Anthropic in `flake.lock`. [`modules/claude-mods.nix`](modules/claude-mods.nix)
-verlinkt `token-weather` (Kontextfenster-Prognose über dem Prompt) und
-`blast-radius` (hält riskante Shell-Befehle an und zeigt vorab, was sie ändern
-würden) nach `~/.claude/skills`. Dazu kommt der eigene Mod `usage-meter` aus
+verlinkt `token-weather` (Kontextfenster-Prognose über dem Prompt) nach
+`~/.claude/skills`. Den Sample-Mod `blast-radius` nutzt diese Config nicht.
+Dazu kommt der eigene Mod `usage-meter` aus
 [`config/claude-mods/usage-meter/`](config/claude-mods/usage-meter/): Er zeigt
 die Rate-Limit-Fenster (5h, 7d) und die Session-Kosten in der Statuszeile, mit
 `/usage-meter` als Pane mit Balken und Reset-Zeiten, und warnt per Toast ab 80 %
