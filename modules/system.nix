@@ -49,7 +49,15 @@
   };
 
   users.users.${username}.home = homeDirectory;
-  programs.zsh.enable = true;
+  programs.zsh = {
+    enable = true;
+    # Home Manager's oh-my-zsh runs compinit with a per-version dump. A second,
+    # unversioned dump here is rebuilt whenever Apple's and Nix's zsh alternate.
+    enableCompletion = false;
+    enableBashCompletion = false;
+    # powerlevel10k replaces the prompt anyway.
+    promptInit = "";
+  };
 
   system = {
     configurationRevision = self.rev or self.dirtyRev or null;

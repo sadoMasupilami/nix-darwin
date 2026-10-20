@@ -43,27 +43,36 @@
         file = "p10k.zsh";
       }
     ];
-    initContent = ''
-      source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
+    initContent = lib.mkMerge [
+      (lib.mkBefore ''
+        # powerlevel10k instant prompt; keep it at the top of .zshrc.
+        if [[ -r "''${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-''${(%):-%n}.zsh" ]]; then
+          source "''${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-''${(%):-%n}.zsh"
+        fi
+      '')
+      ''
+        source ${pkgs.zsh-fzf-tab}/share/fzf-tab/fzf-tab.plugin.zsh
 
-      # Alt/Option+Left/Right word navigation (WSL terminals often send these).
-      bindkey '^[b' backward-word
-      bindkey '^[f' forward-word
-      bindkey '^[[1;3D' backward-word
-      bindkey '^[[1;3C' forward-word
-      bindkey '^[[1;5D' backward-word
-      bindkey '^[[1;5C' forward-word
+        # Alt/Option+Left/Right word navigation (WSL terminals often send these).
+        bindkey '^[b' backward-word
+        bindkey '^[f' forward-word
+        bindkey '^[[1;3D' backward-word
+        bindkey '^[[1;3C' forward-word
+        bindkey '^[[1;5D' backward-word
+        bindkey '^[[1;5C' forward-word
 
-      source ${pkgs.terraform}/share/bash-completion/completions/terraform
+        autoload -U bashcompinit && bashcompinit
+        source ${pkgs.terraform}/share/bash-completion/completions/terraform
 
-      if [[ "$OSTYPE" == darwin* ]]; then
-        compdef __start_kubectl k
-        compdef __start_helm h
-        compdef __start_terraform t
-      fi
+        if [[ "$OSTYPE" == darwin* ]]; then
+          compdef __start_kubectl k
+          compdef __start_helm h
+          compdef __start_terraform t
+        fi
 
-      source <(switcher init zsh)
-    '';
+        source <(switcher init zsh)
+      ''
+    ];
     shellAliases = {
       ls = "eza --icons --classify --group-directories-first";
       ll = "ls -lh";
