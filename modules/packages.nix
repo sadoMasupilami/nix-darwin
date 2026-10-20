@@ -31,6 +31,7 @@ in
       nmap
       nix-index
       glab
+      gh
       bat
       fd
       difftastic
