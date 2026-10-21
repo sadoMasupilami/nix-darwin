@@ -75,7 +75,7 @@
 
       forAllSystems = lib.genAttrs supportedSystems;
 
-      overlay = import ./overlays/libserdes-fmt.nix;
+      overlay = import ./overlays/kcat.nix;
 
       # One package set per system, shared by nix-darwin, Home Manager,
       # packages and checks. An attrset, not a function: Nix does not cache
