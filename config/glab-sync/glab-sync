@@ -52,25 +52,40 @@ remote_location() {
   url_path=${path%.git}
 }
 
-# Sets group and remote_host from the shallowest clone below the current
-# directory whose origin path ends with its relative location, so the folders
-# mirror the namespace. Searches level by level so it never walks into large
-# working trees before checking the shallower clones.
+# Sets group and remote_host if the clone at relative path $1 has an origin
+# whose path ends with that location, so the folders mirror the namespace.
+match_clone() {
+  local rel=$1 url url_host url_path prefix
+  url=$(git -C "$rel" remote get-url origin 2>/dev/null) || return 1
+  remote_location "$url" || return 1
+  [[ "$url_path" == */"$rel" ]] || return 1
+  prefix=${url_path%/"$rel"}
+  [[ "$PWD" == */"$prefix" ]] || return 1
+  group=$prefix
+  remote_host=$url_host
+}
+
+# Sets group and remote_host from the shallowest matching clone below the
+# current directory, up to 7 levels deep. One breadth-first pass that never
+# descends into a clone, so working trees are not walked at all.
 infer_group() {
-  local depth git_dir rel url url_host url_path prefix
-  for depth in 2 3 4 5 6 7 8; do
-    while IFS= read -r -d '' git_dir; do
-      rel=${git_dir#./}
-      rel=${rel%/.git}
-      url=$(git -C "$rel" remote get-url origin 2>/dev/null) || continue
-      remote_location "$url" || continue
-      [[ "$url_path" == */"$rel" ]] || continue
-      prefix=${url_path%/"$rel"}
-      [[ "$PWD" == */"$prefix" ]] || continue
-      group=$prefix
-      remote_host=$url_host
-      return 0
-    done < <(find . -mindepth "$depth" -maxdepth "$depth" -name .git -print0 2>/dev/null)
+  local depth dir child
+  local -a level=(.) next
+  for ((depth = 1; depth <= 7; depth++)); do
+    next=()
+    for dir in "${level[@]}"; do
+      for child in "$dir"/*/; do
+        child=${child%/}
+        [[ -d "$child" && ! -L "$child" ]] || continue
+        if [[ -e "$child/.git" ]]; then
+          match_clone "${child#./}" && return 0
+        else
+          next+=("$child")
+        fi
+      done
+    done
+    (( ${#next[@]} )) || return 1
+    level=("${next[@]}")
   done
   return 1
 }
@@ -127,9 +142,15 @@ echo "glab-sync: $group → $PWD/$group"
 credential_config=(-c credential.helper= -c 'credential.helper=!glab auth git-credential')
 
 encoded=$(printf %s "$group" | jq -sRr @uri)
+# with_shared defaults to true and would also list projects of other
+# namespaces that are merely shared with the group. Each line starts with
+# whether the project lies inside the group; GitLab paths are case-insensitive.
 if ! projects=$(glab api --paginate \
-  "groups/$encoded/projects?include_subgroups=true&archived=false&per_page=100" |
-  jq -r '.[] | "\(.path_with_namespace) \(.http_url_to_repo)"'); then
+  "groups/$encoded/projects?include_subgroups=true&archived=false&with_shared=false&per_page=100" |
+  jq -r --arg group "$group" '
+    .[]
+    | ((.path_with_namespace | ascii_downcase) | startswith(($group | ascii_downcase) + "/")) as $inside
+    | "\($inside) \(.path_with_namespace) \(.http_url_to_repo)"'); then
   echo "glab-sync: could not list projects of group '$group'" >&2
   exit 1
 fi
@@ -139,8 +160,12 @@ pulled=0
 failed=0
 
 # </dev/null keeps git and its credential helper from consuming the project list.
-while read -r path url; do
+while read -r inside path url; do
   [[ -n "$path" ]] || continue
+  if [[ "$inside" != true ]]; then
+    echo "⚠ $path: outside $group, skipped" >&2
+    continue
+  fi
   if [[ -e "$path/.git" ]]; then
     echo "↻ $path"
     if git "${credential_config[@]}" -C "$path" pull --ff-only --quiet </dev/null; then

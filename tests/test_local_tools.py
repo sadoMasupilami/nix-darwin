@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -16,16 +17,25 @@ QWEN_SETUP = REPO_ROOT / "config" / "qwen-meeting" / "qwen-meeting-setup"
 TEAMS = REPO_ROOT / "config" / "raycast" / "teams-video-call.sh"
 LOCAL_PRIVATE_TOOLS_MODULE = REPO_ROOT / "modules" / "local-private-tools.nix"
 
+# The installed qwen wrappers exec Nix's zsh, which is the zsh on PATH inside
+# the flake check. macOS's /bin/zsh is only the fallback for manual runs.
+ZSH = shutil.which("zsh") or "/bin/zsh"
+# Raycast starts the Teams script through `/usr/bin/env bash`, which resolves
+# to macOS's bash 3.2 under Raycast's default PATH, so test with that one.
+SYSTEM_BASH = "/bin/bash"
+
 
 def write_executable(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
     path.chmod(0o700)
 
 
-def run_command(command: list[str], environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
+def run_command(
+    command: list[str], environment: dict[str, str], cwd: Path = REPO_ROOT
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         command,
-        cwd=REPO_ROOT,
+        cwd=cwd,
         env=environment,
         capture_output=True,
         text=True,
@@ -112,8 +122,8 @@ printf '{}\\n' > "$output/$stem.json"
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def run_wrapper(self, *arguments: str) -> subprocess.CompletedProcess[str]:
-        return run_command(["/bin/zsh", str(QWEN), *arguments], self.environment)
+    def run_wrapper(self, *arguments: str, cwd: Path = REPO_ROOT) -> subprocess.CompletedProcess[str]:
+        return run_command([ZSH, str(QWEN), *arguments], self.environment, cwd)
 
     def test_default_is_offline_quiet_private_opens_and_does_not_copy(self) -> None:
         result = self.run_wrapper(str(self.audio))
@@ -203,6 +213,35 @@ printf '{}\\n' > "$output/$stem.json"
         self.assertFalse(self.copied.exists())
         self.assertFalse(self.open_args.exists())
 
+    def test_dash_and_serve_file_names_reach_the_asr_as_absolute_paths(self) -> None:
+        # The ASR CLI would read "-x.m4a" as an option and "serve" as its
+        # server subcommand; an absolute path is neither.
+        for name in ("-x.m4a", "serve"):
+            with self.subTest(name=name):
+                audio = self.home / name
+                audio.write_bytes(b"audio")
+                result = self.run_wrapper("--no-open", "--", name, cwd=self.home)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                given = self.asr_args.read_text().splitlines()[0]
+                self.assertTrue(given.startswith("/"), given)
+                self.assertEqual(Path(given).resolve(), audio.resolve())
+
+    def test_dot_dot_after_a_symlinked_directory_reaches_the_checked_file(self) -> None:
+        # "link/../x" means the parent of the link's target. Editing the path
+        # as text would drop "link/.." and name a different file.
+        real = self.root / "real"
+        (real / "recordings").mkdir(parents=True)
+        audio = real / "talk.m4a"
+        audio.write_bytes(b"audio")
+        work = self.root / "work"
+        work.mkdir()
+        (work / "recordings").symlink_to(real / "recordings")
+        result = self.run_wrapper("--no-open", "recordings/../talk.m4a", cwd=work)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        given = self.asr_args.read_text().splitlines()[0]
+        self.assertTrue(given.startswith("/"), given)
+        self.assertEqual(Path(given).resolve(), audio.resolve())
+
     def test_missing_nix_runtime_is_reported_before_any_output(self) -> None:
         self.environment["QWEN_MEETING_ASR"] = ""
         result = self.run_wrapper(str(self.audio))
@@ -220,26 +259,36 @@ class QwenSetupTests(unittest.TestCase):
         self.runtime = self.home / "runtime"
         self.state = self.home / "state"
         self.fetch_args = self.root / "fetch-args"
+        self.fetch_environment = self.root / "fetch-environment"
         self.runtime.mkdir(parents=True)
         (self.runtime / "fetch-models.py").touch()
         python = self.root / "python"
         asr = self.root / "asr"
-        write_executable(python, '#!/bin/bash\nprintf "%s\\n" "$@" > "${FETCH_ARGS_FILE:?}"\n')
+        write_executable(
+            python,
+            '#!/bin/bash\nprintf "%s\\n" "$@" > "${FETCH_ARGS_FILE:?}"\n'
+            'printf "%s\\n" "${HF_HOME:-}" "${HF_HUB_DISABLE_TELEMETRY:-}"'
+            ' "${HF_HUB_DISABLE_IMPLICIT_TOKEN:-}" "${HF_HUB_OFFLINE:-unset}"'
+            ' > "${FETCH_ENV_FILE:?}"\n',
+        )
         write_executable(asr, '#!/bin/bash\n[[ "$1" == "--doctor" ]]\n')
         self.environment = os.environ.copy()
+        for name in ("HF_HOME", "HF_HUB_DISABLE_TELEMETRY", "HF_HUB_DISABLE_IMPLICIT_TOKEN", "HF_HUB_OFFLINE"):
+            self.environment.pop(name, None)
         self.environment.update({
             "QWEN_MEETING_RUNTIME": str(self.runtime),
             "QWEN_MEETING_STATE_HOME": str(self.state),
             "QWEN_MEETING_PYTHON": str(python),
             "QWEN_MEETING_ASR": str(asr),
             "FETCH_ARGS_FILE": str(self.fetch_args),
+            "FETCH_ENV_FILE": str(self.fetch_environment),
         })
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
     def run_setup(self) -> subprocess.CompletedProcess[str]:
-        return run_command(["/bin/zsh", str(QWEN_SETUP)], self.environment)
+        return run_command([ZSH, str(QWEN_SETUP)], self.environment)
 
     def test_setup_only_fetches_models_with_injected_runtime(self) -> None:
         result = self.run_setup()
@@ -247,6 +296,14 @@ class QwenSetupTests(unittest.TestCase):
         arguments = self.fetch_args.read_text().splitlines()
         self.assertEqual(arguments, [str(self.runtime / "fetch-models.py"), "--state-dir", str(self.state)])
         self.assertEqual(stat.S_IMODE(self.state.stat().st_mode), 0o700)
+
+    def test_setup_keeps_hugging_face_state_private_and_online(self) -> None:
+        result = self.run_setup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            self.fetch_environment.read_text().splitlines(),
+            [str(self.state / "huggingface"), "1", "1", "unset"],
+        )
 
     def test_setup_requires_nix_runtime(self) -> None:
         self.environment["QWEN_MEETING_PYTHON"] = "/nonexistent"
@@ -288,15 +345,47 @@ class TeamsPickerTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def run_picker(self, *arguments: str) -> subprocess.CompletedProcess[str]:
-        return run_command(["/bin/bash", str(TEAMS), *arguments], self.environment)
+    def run_picker(self, *arguments: str, bash: str = SYSTEM_BASH) -> subprocess.CompletedProcess[str]:
+        return run_command([bash, str(TEAMS), *arguments], self.environment)
 
     def write_contacts(self, content: str, mode: int = 0o600) -> None:
         self.csv.write_text(content, encoding="utf-8")
         self.csv.chmod(mode)
 
+    def fake_picker(self, answer: str) -> None:
+        """Records the rows the picker would show and picks `answer`."""
+        write_executable(
+            self.osascript,
+            f"""#!/usr/bin/env bash
+printf '%s\\n' "$@" > "$OSASCRIPT_ARGS"
+cat >/dev/null
+cp "$2" "$OSASCRIPT_ARGS.rows"
+printf '{answer}\\n'
+""",
+        )
+
+    def shown_rows(self) -> list[str]:
+        return Path(f"{self.osascript_args}.rows").read_text(encoding="utf-8").splitlines()
+
+    def call_url(self, *arguments: str, bash: str = SYSTEM_BASH) -> str:
+        """Places a real (faked) call and returns the deep link it opened."""
+        opened = self.root / "opened-url"
+        open_command = self.root / "fake-open"
+        write_executable(open_command, '#!/usr/bin/env bash\nprintf "%s" "$1" > "$OPENED_URL"\n')
+        self.environment.update(
+            {
+                "TEAMS_CALL_DRY_RUN": "0",
+                "TEAMS_CALL_OPEN_CMD": str(open_command),
+                "OPENED_URL": str(opened),
+            }
+        )
+        result = self.run_picker(*arguments, bash=bash)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return opened.read_text(encoding="utf-8")
+
     def test_single_contact_discloses_no_email_tenant_or_deep_link(self) -> None:
         self.write_contacts("Private Name,private@example.test,secret-tenant\n")
+        self.fake_picker("1")
         result = self.run_picker()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Teams-Videoanruf würde geöffnet", result.stdout)
@@ -363,6 +452,72 @@ printf '2\\n'
         self.assertNotIn("one@example.test", arguments)
         self.assertNotIn("tenant-one", arguments)
         self.assertEqual(self.state.joinpath("status").read_text(), "Anruf gestartet\n")
+
+    def test_single_match_is_never_dialled_without_confirmation(self) -> None:
+        self.write_contacts("Private Name,private@example.test,secret-tenant\n")
+        self.fake_picker("")
+        result = self.run_picker()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.shown_rows(), ["1\tPrivate Name — private@example.test"])
+        self.assertIn("Abgebrochen", result.stdout)
+        self.assertNotIn("würde geöffnet", result.stdout)
+        self.assertEqual(self.state.joinpath("status").read_text(), "Abgebrochen\n")
+
+    def test_header_row_is_not_a_contact(self) -> None:
+        self.write_contacts(
+            "name,email,tenantId\nOne,one@example.test,tenant-one\n"
+        )
+        self.fake_picker("1")
+        result = self.run_picker()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.shown_rows(), ["1\tOne — one@example.test"])
+        self.assertEqual(result.stderr, "")
+        # Only the header contains "mail"; it must not become a callable match.
+        result = self.run_picker("mail")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("Keine passenden Teams-Kontakte", result.stderr)
+
+    def test_quoted_name_with_comma_keeps_its_columns(self) -> None:
+        self.write_contacts(
+            '"Doe, John",john@example.test,tenant-two\n'
+            '"Said ""Bob"" Smith",bob@example.test,tenant-three\n'
+        )
+        self.fake_picker("1")
+        url = self.call_url("john")
+        self.assertEqual(self.shown_rows(), ["1\tDoe, John — john@example.test"])
+        self.assertIn("users=john%40example.test&", url)
+        self.assertIn("tenantId=tenant-two&", url)
+        self.fake_picker("1")
+        self.call_url("bob")
+        self.assertEqual(self.shown_rows(), ['1\tSaid "Bob" Smith — bob@example.test'])
+
+    def test_malformed_rows_are_skipped_by_line_number_only(self) -> None:
+        self.write_contacts(
+            '"Unterminated,broken@example.test,tenant-x\n'
+            "No Address,not-an-email,tenant-y\n"
+            "Short Row,short@example.test\n"
+            "One,one@example.test,tenant-one\n"
+        )
+        self.fake_picker("1")
+        result = self.run_picker()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.shown_rows(), ["1\tOne — one@example.test"])
+        for line in (1, 2, 3):
+            self.assertIn(f"teams-people.csv:{line}:", result.stderr)
+        for secret in ("Unterminated", "broken@", "not-an-email", "Short Row", "tenant-"):
+            self.assertNotIn(secret, result.stdout + result.stderr)
+
+    def test_non_ascii_address_is_percent_encoded_as_utf8_in_any_locale(self) -> None:
+        shells = {SYSTEM_BASH, shutil.which("bash") or SYSTEM_BASH}
+        for bash in sorted(shells):
+            for locale in ("C", "en_US.UTF-8"):
+                with self.subTest(bash=bash, locale=locale):
+                    self.write_contacts("Jürgen,jürgen.łukasz@example.at,tenant-ü\n")
+                    self.environment["LC_ALL"] = locale
+                    self.fake_picker("1")
+                    url = self.call_url(bash=bash)
+                    self.assertIn("users=j%C3%BCrgen.%C5%82ukasz%40example.at&", url)
+                    self.assertIn("tenantId=tenant-%C3%BC&", url)
 
     def test_existing_insecure_config_directory_is_rejected_not_changed(self) -> None:
         self.write_contacts("Private Name,private@example.test,secret-tenant\n")

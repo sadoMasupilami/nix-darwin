@@ -43,6 +43,13 @@ if [[ "$(/usr/bin/stat -f '%Lp' "$STATE_DIR")" != 700 ]]; then
   exit 5
 fi
 
+# Same Hugging Face settings as the transcription run, minus offline mode: all
+# Hub state (Xet cache, token lookup) stays in the private state directory and
+# no telemetry is sent. The models are public and need no token.
+export HF_HOME="$STATE_DIR/huggingface"
+export HF_HUB_DISABLE_TELEMETRY=1
+export HF_HUB_DISABLE_IMPLICIT_TOKEN=1
+
 echo "Lade die revisionsgesperrten Modelle in den privaten lokalen Cache."
 "$PYTHON" "$RUNTIME_DIR/fetch-models.py" --state-dir "$STATE_DIR"
 

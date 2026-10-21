@@ -86,6 +86,10 @@ fi
 
 INPUT="${POSITIONAL[1]}"
 LANGUAGE_MODE="${POSITIONAL[2]:-auto}"
+# The ASR CLI has no "--": an absolute path never looks like an option or its
+# "serve" subcommand. Only $PWD is prefixed; the kernel still resolves ".."
+# and symlinks, so the ASR reads exactly the file checked below.
+[[ "$INPUT" == /* ]] || INPUT="$PWD/$INPUT"
 
 if [[ ! -f "$INPUT" ]]; then
   echo "Fehler: Die Eingabedatei wurde nicht gefunden." >&2

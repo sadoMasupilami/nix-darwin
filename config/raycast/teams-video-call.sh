@@ -64,17 +64,26 @@ if ! private_directory_mode "$CONFIG_DIR"; then
   exit 1
 fi
 
+# Percent-encodes byte by byte, so UTF-8 becomes valid %XX sequences in any
+# caller locale. bash 3.2 (Raycast's /bin/bash) sign-extends bytes above 0x7F,
+# hence the mask.
 urlencode() {
+  local LC_ALL=C
   local value="$1"
   local encoded=""
   local character
+  local byte
   local i
 
   for ((i = 0; i < ${#value}; i++)); do
     character="${value:i:1}"
     case "$character" in
       [a-zA-Z0-9.~_-]) encoded+="$character" ;;
-      *) printf -v character '%%%02X' "'$character"; encoded+="$character" ;;
+      *)
+        printf -v byte '%d' "'$character"
+        printf -v character '%%%02X' $(( byte & 255 ))
+        encoded+="$character"
+        ;;
     esac
   done
 
@@ -116,28 +125,71 @@ fi
 
 WORK_DIR="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/raycast-teams-call.XXXXXX")"
 /bin/chmod 700 "$WORK_DIR"
-trap '/bin/rm -rf "$WORK_DIR"' EXIT HUP INT TERM
+# Signals end the script with 128+signal; the EXIT trap then cleans up once.
+trap '/bin/rm -rf "$WORK_DIR"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 CONTACTS_FILE="$WORK_DIR/contacts.tsv"
 DISPLAY_FILE="$WORK_DIR/display.tsv"
 
 # The temporary files are private (0600 through umask). Personal data is never
-# written to the shared /tmp log used by the previous implementation.
-awk -F',' -v q="$QUERY" '
+# written to the shared /tmp log used by the previous implementation. Skipped
+# rows are reported by line number only.
+awk -v q="$QUERY" '
+  # Splits one CSV line into f[1..n]. A field may be double-quoted, with ""
+  # for a literal quote, so "Doe, John" stays one name. Returns -1 when a
+  # quote is never closed.
+  function split_csv(line, f,    n, i, c, field, quoted) {
+    n = 1
+    field = ""
+    quoted = 0
+    for (i = 1; i <= length(line); i++) {
+      c = substr(line, i, 1)
+      if (quoted) {
+        if (c != "\"") {
+          field = field c
+        } else if (substr(line, i + 1, 1) == "\"") {
+          field = field c
+          i++
+        } else {
+          quoted = 0
+        }
+      } else if (c == "\"") {
+        quoted = 1
+      } else if (c == ",") {
+        f[n++] = field
+        field = ""
+      } else {
+        field = field c
+      }
+    }
+    f[n] = field
+    return quoted ? -1 : n
+  }
+  function skip(line) {
+    printf "teams-people.csv:%d: Zeile übersprungen (erwartet: name,email,tenantId)\n", line > "/dev/stderr"
+  }
   BEGIN { count = 0; query = tolower(q) }
-  NF >= 3 && $0 !~ /^[[:space:]]*#/ {
-    name = $1
-    email = $2
-    tenant = $3
+  $0 ~ /^[[:space:]]*(#|$)/ { next }
+  {
+    split("", fields)
+    if (split_csv($0, fields) < 3) { skip(NR); next }
+    name = fields[1]
+    email = fields[2]
+    tenant = fields[3]
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", email)
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", tenant)
     gsub(/[\t\r\n]/, " ", name)
     gsub(/[\t\r\n]/, "", email)
     gsub(/[\t\r\n]/, "", tenant)
+    # The documented column names may be kept as a header line.
+    if (tolower(name) == "name" && tolower(email) == "email" && tolower(tenant) == "tenantid") next
+    if (name == "" || tenant == "" || email !~ /^[^@[:space:]]+@[^@[:space:]]+$/) { skip(NR); next }
     searchable = tolower(name " " email)
-    if (name != "" && email != "" && tenant != "" &&
-        (query == "" || index(searchable, query) > 0)) {
+    if (query == "" || index(searchable, query) > 0) {
       count++
       print count "\t" name " — " email "\t" name "\t" email "\t" tenant
     }
@@ -152,21 +204,20 @@ if [[ "$MATCH_COUNT" -eq 0 ]]; then
   exit 1
 fi
 
-if [[ "$MATCH_COUNT" -eq 1 ]]; then
-  SELECTED_ID=1
-else
-  awk -F '\t' '{ print $1 "\t" $2 }' "$CONTACTS_FILE" > "$DISPLAY_FILE"
-  /bin/chmod 600 "$DISPLAY_FILE"
+awk -F '\t' '{ print $1 "\t" $2 }' "$CONTACTS_FILE" > "$DISPLAY_FILE"
+/bin/chmod 600 "$DISPLAY_FILE"
 
-  if [[ ! -x "$OSASCRIPT_CMD" ]]; then
-    write_status "Fehler"
-    echo "Die macOS-Auswahlanzeige ist nicht verfügbar." >&2
-    exit 1
-  fi
+if [[ ! -x "$OSASCRIPT_CMD" ]]; then
+  write_status "Fehler"
+  echo "Die macOS-Auswahlanzeige ist nicht verfügbar." >&2
+  exit 1
+fi
 
-  # Pass only a private temporary filename to osascript. No contact or tenant
-  # data is interpolated into executable AppleScript source or process args.
-  SELECTED_ID="$("$OSASCRIPT_CMD" - "$DISPLAY_FILE" <<'APPLESCRIPT'
+# A single match is preselected but still shown, so no call ever starts
+# without the user confirming the person. Pass only a private temporary
+# filename to osascript. No contact or tenant data is interpolated into
+# executable AppleScript source or process args.
+SELECTED_ID="$("$OSASCRIPT_CMD" - "$DISPLAY_FILE" <<'APPLESCRIPT'
 on run argv
   set sourceFile to POSIX file (item 1 of argv)
   set raw to read sourceFile as «class utf8»
@@ -184,7 +235,11 @@ on run argv
     end if
   end repeat
 
-  set picked to choose from list displayRows with title "Teams Video Call" with prompt "Pick a person to video call" without empty selection allowed
+  if (count of displayRows) is 1 then
+    set picked to choose from list displayRows with title "Teams Video Call" with prompt "Confirm the person to video call" default items displayRows without empty selection allowed
+  else
+    set picked to choose from list displayRows with title "Teams Video Call" with prompt "Pick a person to video call" without empty selection allowed
+  end if
   if picked is false then return ""
 
   set pickedDisplay to item 1 of picked
@@ -194,8 +249,7 @@ on run argv
   return selectedId
 end run
 APPLESCRIPT
-  )"
-fi
+)"
 
 if [[ -z "$SELECTED_ID" ]]; then
   write_status "Abgebrochen"
@@ -210,7 +264,7 @@ if [[ -z "$SELECTED_ROW" ]]; then
   exit 1
 fi
 
-IFS=$'\t' read -r _ DISPLAY_NAME NAME EMAIL TENANT_ID <<< "$SELECTED_ROW"
+IFS=$'\t' read -r _ _ NAME EMAIL TENANT_ID <<< "$SELECTED_ROW"
 if [[ -z "$NAME" || -z "$EMAIL" || -z "$TENANT_ID" ]]; then
   write_status "Fehler"
   echo "Ungültiger Kontakteintrag." >&2
