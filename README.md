@@ -480,7 +480,8 @@ overlays.default
 
 `overlays.default` ([`overlays/kcat.nix`](overlays/kcat.nix)) repariert
 den Build von kcat: libserdes gegen fmt 12 auf macOS und Linux, avro-cpp mit
-GCC 16 nur auf Linux (eine falsche `-Warray-bounds`-Meldung unter `-Werror`).
+GCC 16 nur auf Linux (neue GCC-Warnungen, die avro-cpp per `-Werror` zu
+Fehlern macht; das `-Werror` wird für GCC entfernt).
 Die Auswertung warnt, sobald nixpkgs ein anderes avro-cpp als 1.12.0 liefert;
 dann prüfen, ob die beiden Korrekturen noch nötig sind.
 
