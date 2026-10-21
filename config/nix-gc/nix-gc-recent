@@ -8,6 +8,8 @@ set -euo pipefail
 #
 # The volume is mounted noatime, so a path's atime is the moment Nix registered
 # it: this protects recently built or fetched paths, not recently executed ones.
+# A path registered after the dead-path listing and left without a root is not
+# covered; nix-config-apply therefore roots the snapshot it is working on.
 #
 # usage: nix-gc-recent [--force] [--dry-run]
 #   --force    collect even if enough space is free
@@ -17,6 +19,7 @@ min_age_days=${NIX_GC_MIN_AGE_DAYS:-14}
 start_below=${NIX_GC_START_BELOW_FREE_PERCENT:-20}
 urgent_below=${NIX_GC_URGENT_BELOW_FREE_PERCENT:-5}
 roots_dir=${NIX_GC_ROOTS_DIR:-/nix/var/nix/gcroots/nix-gc-recent}
+lock_file=${NIX_GC_LOCK_FILE:-/var/run/nix-gc-recent.lock}
 volume=${NIX_GC_VOLUME:-/nix}
 
 force=false
@@ -54,6 +57,18 @@ if (( before < urgent_below )); then
 fi
 cutoff=$(( $(date +%s) - protect_days * 86400 ))
 
+# launchd never overlaps its own job, but a manual `sudo nix-gc-recent --force`
+# can, and each run replaces the shared roots dir. lockf locks the file open on
+# fd 9; the kernel drops that lock when the run ends, even after kill -9, so no
+# stale lock survives. A dry run only reads and needs none.
+if [[ "$dry_run" == false ]]; then
+  exec 9>"$lock_file"
+  if ! lockf -s -t 0 9; then
+    echo 'nix-gc-recent: another run is active, skipping' >&2
+    exit 0
+  fi
+fi
+
 tmp=$(mktemp -d)
 cleanup() {
   rm -rf -- "$tmp"
@@ -70,7 +85,9 @@ if [[ "$dry_run" == false ]]; then
 fi
 
 nix-store --gc --print-dead >"$tmp/dead"
-xargs -r -d '\n' stat -c '%X %n' <"$tmp/dead" \
+# Store paths contain no NUL or newline; NUL-separated input keeps xargs portable.
+tr '\n' '\0' <"$tmp/dead" \
+  | xargs -0 -r stat -c '%X %n' \
   | awk -v cutoff="$cutoff" '$1 >= cutoff { sub(/^[0-9]+ /, ""); print }' >"$tmp/recent"
 
 echo "nix-gc-recent: sparing $(wc -l <"$tmp/recent") of $(wc -l <"$tmp/dead") unreachable paths younger than $protect_days days"
@@ -86,5 +103,6 @@ while IFS= read -r path; do
   ln -s -- "$path" "$roots_dir/${path##*/}"
 done <"$tmp/recent"
 
-nix-store --gc
+# --quiet keeps the per-path 'deleting' lines out of the log.
+nix-store --gc --quiet
 echo "nix-gc-recent: $(free_percent)% free on $volume after collection"

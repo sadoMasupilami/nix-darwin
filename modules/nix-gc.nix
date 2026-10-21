@@ -47,4 +47,24 @@ in
       StandardErrorPath = "/var/log/nix-gc-recent.log";
     };
   };
+
+  # nix-store --gc can log one line per deleted path, so a single collection
+  # may write megabytes. launchd reopens the log for every run, so no signal
+  # is needed after rotation.
+  system.newsyslog = {
+    enable = true;
+    files.nix-gc-recent = [
+      {
+        logfilename = "/var/log/nix-gc-recent.log";
+        owner = "root";
+        group = "wheel";
+        count = 5;
+        size = "1024";
+        flags = [
+          "N"
+          "J"
+        ];
+      }
+    ];
+  };
 }
