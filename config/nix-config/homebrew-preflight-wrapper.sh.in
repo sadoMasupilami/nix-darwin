@@ -11,7 +11,13 @@ work_dir=$(/usr/bin/mktemp -d "$tmp_root/nix-homebrew-preflight.XXXXXX")
 cleanup() {
   /bin/rm -rf -- "$work_dir"
 }
-trap cleanup EXIT HUP INT TERM
+# The signal traps run once the foreground brew has exited, so its private
+# directory is never removed under it; they then end the wrapper with the
+# conventional 128+signal status, and the EXIT trap cleans up exactly once.
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 library="$work_dir/Library"
 /bin/mkdir -p \
@@ -26,7 +32,9 @@ library="$work_dir/Library"
 
 # Read the installed Cellar/Caskroom from the real prefix, but keep Homebrew's
 # code, taps, configuration, cache, logs and temporary files in locked or
-# private disposable locations. Nothing under /opt/homebrew is mutated.
+# private disposable locations. The preflight's commands mutate nothing under
+# /opt/homebrew; only nix-config-apply's explicitly approved `bundle cleanup
+# --force` removes packages through this wrapper.
 export NIX_HOMEBREW_PREFLIGHT_LIBRARY="$library"
 export XDG_CONFIG_HOME="$work_dir/config"
 export TMPDIR="$work_dir/tmp"

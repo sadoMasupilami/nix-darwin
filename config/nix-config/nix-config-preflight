@@ -9,6 +9,7 @@ repo=$(nix_config_resolve_repo)
 nix_config_require_repo "$repo"
 flake_ref=
 accept_zap=
+handoff_dir=
 while (( $# )); do
   case "$1" in
     --snapshot)
@@ -17,11 +18,19 @@ while (( $# )); do
     --accept-zap)
       [[ $# -ge 2 && "$2" =~ ^[a-f0-9]{64}$ ]] || nix_config_usage_error 'expected a cleanup approval hash after --accept-zap'
       accept_zap=$2; shift 2 ;;
-    *) nix_config_usage_error 'usage: nix-config-preflight [--snapshot path:/nix/store/...] [--accept-zap HASH]' ;;
+    # nix-config-apply passes a private directory. An approved cleanup leaves
+    # the checked Brewfile and the pinned brew there, so apply can remove
+    # exactly the approved list itself.
+    --handoff)
+      [[ $# -ge 2 && -d "$2" ]] || nix_config_usage_error 'expected a directory after --handoff'
+      handoff_dir=$2; shift 2 ;;
+    *) nix_config_usage_error 'usage: nix-config-preflight [--snapshot path:/nix/store/...] [--accept-zap HASH] [--handoff DIR]' ;;
   esac
 done
+tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/nix-config-preflight.XXXXXX")
+trap 'rm -rf -- "$tmp_dir"' EXIT
 if [[ -z "$flake_ref" ]]; then
-  flake_ref=$(nix_config_snapshot "$repo")
+  flake_ref=$(nix_config_snapshot "$repo" "$tmp_dir/source")
 fi
 ulimit -n 65536 2>/dev/null || true
 cd -- "$repo"
@@ -43,7 +52,9 @@ if [[ "$system_name" != Darwin ]]; then
 fi
 
 printf 'Building the Homebrew preflight environment from flake.lock...\n'
-brew_out=$(nix build --no-link --print-out-paths --no-update-lock-file \
+# The link keeps the pinned brew alive until apply has used it as well.
+brew_out=$(nix build --out-link "${handoff_dir:-$tmp_dir}/homebrew-preflight" \
+  --print-out-paths --no-update-lock-file \
   "$flake_ref#homebrew-preflight")
 if [[ -z "$brew_out" || "$brew_out" == *$'\n'* ]]; then
   printf 'error: homebrew-preflight returned an invalid output path\n' >&2
@@ -80,8 +91,6 @@ if [[ -e "$taps_dir" && ! -L "$taps_dir" ]]; then
   exit 2
 fi
 
-tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/nix-config-preflight.XXXXXX")
-trap 'rm -rf -- "$tmp_dir"' EXIT
 brewfile="$tmp_dir/Brewfile"
 
 printf 'Evaluating the generated Brewfile...\n'
@@ -116,24 +125,45 @@ printf 'Parsing the generated Brewfile with Homebrew Bundle...\n'
 HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle list \
   --all --file="$brewfile" >/dev/null
 
-printf 'Checking declared formulae against their installed taps...\n'
+printf 'Checking declared formulae and casks against the locked taps...\n'
 # `brew info` can prefer the installed receipt, while `brew install` resolves
 # a bare name through Core aliases. Load the install definition explicitly
 # and compare receipts without invoking install (even its dry-run can write
-# installed_on_request metadata).
+# installed_on_request metadata). Homebrew refuses to install a disabled
+# formula or cask, so a fresh machine could not satisfy such an entry; a
+# scheduled disable is only reported.
 HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" ruby -e '
   require "bundle/dsl"
+  require "cask/cask_loader"
+  require "deprecate_disable"
   require "formulary"
+  errors = []
   Homebrew::Bundle::Dsl.new(Pathname(ARGV.fetch(0))).entries.each do |entry|
-    next unless entry.type == :brew
-    formula = Formulary.factory(entry.name)
-    installed_tap = formula.any_installed_keg&.tab&.tap&.name
-    declared_tap = formula.tap&.name
-    next unless installed_tap && declared_tap && installed_tap != declared_tap
-    abort "error: Brewfile formula #{entry.name} resolves to #{formula.full_name}, " \
-          "but the installed formula belongs to #{installed_tap}. " \
-          "Use the intended fully qualified tap/formula name in homebrew.brews."
+    case entry.type
+    when :brew
+      kind = "formula"
+      package = Formulary.factory(entry.name)
+      installed_tap = package.any_installed_keg&.tab&.tap&.name
+      declared_tap = package.tap&.name
+      if installed_tap && declared_tap && installed_tap != declared_tap
+        errors << "Brewfile formula #{entry.name} resolves to #{package.full_name}, " \
+                  "but the installed formula belongs to #{installed_tap}. " \
+                  "Use the intended fully qualified tap/formula name in homebrew.brews."
+      end
+    when :cask
+      kind = "cask"
+      package = Cask::CaskLoader.load(entry.options.fetch(:full_name, entry.name))
+    else
+      next
+    end
+    if package.disabled?
+      errors << "Brewfile #{kind} #{entry.name} can no longer be installed: " \
+                "#{DeprecateDisable.message(package)} Remove it from the Homebrew manifest."
+    elsif package.deprecated?
+      warn "warning: Brewfile #{kind} #{entry.name} is #{DeprecateDisable.message(package)}"
+    end
   end
+  abort errors.map { |error| "error: #{error}" }.join("\n") unless errors.empty?
 ' -- "$brewfile"
 
 formula_list="$tmp_dir/installed-formulae"
@@ -159,14 +189,26 @@ parse_installed() {
   local kind=$1
   local list_file=$2
   local package
+  local -a packages=()
 
   while IFS= read -r package || [[ -n "$package" ]]; do
     [[ -z "$package" ]] && continue
     validate_brew_name "$kind" "$package"
-    # JSON mode avoids human-readable `brew info` linkage-cache writes while
-    # still loading and validating the complete formula/cask definition.
-    HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" info --json=v2 "--$kind" -- "$package" >/dev/null
+    packages+=("$package")
   done <"$list_file"
+  (( ${#packages[@]} )) || return 0
+
+  # JSON mode avoids human-readable `brew info` linkage-cache writes while
+  # still loading and validating the complete formula/cask definition. One
+  # brew process loads them all; only after a failure does a per-name pass
+  # run, so the error still names the broken package.
+  if ! HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" info --json=v2 "--$kind" -- "${packages[@]}" >/dev/null; then
+    for package in "${packages[@]}"; do
+      HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" info --json=v2 "--$kind" -- "$package" >/dev/null
+    done
+    printf 'error: loading all installed %s definitions failed, although each loads alone\n' "$kind" >&2
+    exit 2
+  fi
 }
 
 printf 'Parsing every installed Homebrew formula and cask...\n'
@@ -176,7 +218,16 @@ parse_installed cask "$cask_list"
 printf 'Checking that every Brewfile dependency is already installed...\n'
 bundle_status=0
 HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle check \
-  --verbose --no-upgrade --file="$brewfile" || bundle_status=$?
+  --verbose --no-upgrade --file="$brewfile" >"$tmp_dir/check.txt" 2>&1 || bundle_status=$?
+cat "$tmp_dir/check.txt"
+
+# brew also exits 1 for any uncaught error, so only Bundle's own message means
+# that dependencies are merely missing.
+if [[ "$bundle_status" == 1 ]] \
+  && ! grep -Fqx "brew bundle can't satisfy your Brewfile's dependencies." "$tmp_dir/check.txt"; then
+  printf 'error: Brewfile dependency check failed without listing missing dependencies\n' >&2
+  exit 2
+fi
 
 case "$bundle_status" in
   0)
@@ -190,11 +241,18 @@ case "$bundle_status" in
     ;;
 esac
 
-printf 'Previewing cleanup=zap (read-only; no --force)...\n'
+printf 'Previewing the zap cleanup (read-only; no --force)...\n'
 cleanup_status=0
 HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle cleanup \
   --all --zap --file="$brewfile" </dev/null >"$tmp_dir/cleanup.txt" 2>&1 || cleanup_status=$?
 cat "$tmp_dir/cleanup.txt"
+
+# Exit status 1 is also brew's generic crash status. Only an actual removal
+# list makes it something to approve; never hand out a hash for an error.
+if [[ "$cleanup_status" == 1 ]] && ! grep -Eq '^Would (uninstall|untap)' "$tmp_dir/cleanup.txt"; then
+  printf 'error: cleanup preview exited 1 without a removal list\n' >&2
+  exit 2
+fi
 
 # Homebrew 6.0.20 exits zero when only old versions/cache files would be
 # removed. Its exit status alone does not mean the preview is empty.
@@ -211,11 +269,19 @@ case "$cleanup_status" in
     approval_hash=$({ printf '%s\n' "$flake_ref"; cat "$tmp_dir/cleanup.txt"; } | sha256sum)
     approval_hash=${approval_hash%% *}
     if [[ "$accept_zap" != "$approval_hash" ]]; then
+      # Name the apply helper of this version: run from a checkout, the one
+      # in ~/.bin may still be an older one that removes nothing itself.
+      apply_helper=nix-config-apply
+      [[ "$script_dir" == /nix/store/* ]] || apply_helper="$script_dir/nix-config-apply"
       printf 'error: cleanup requires explicit approval of the list above.\n' >&2
-      printf 'After review, run: nix-config-apply --accept-zap %s\n' "$approval_hash" >&2
+      printf 'After review, run: %q --accept-zap %s\n' "$apply_helper" "$approval_hash" >&2
       exit 3
     fi
     printf 'The displayed cleanup list was explicitly accepted for this snapshot.\n'
+    if [[ -n "$handoff_dir" ]]; then
+      cp -- "$brewfile" "$handoff_dir/Brewfile"
+      printf '%s\n' "$brew_bin" >"$handoff_dir/brew"
+    fi
     ;;
   *)
     printf 'error: cleanup preview failed with exit status %s\n' "$cleanup_status" >&2

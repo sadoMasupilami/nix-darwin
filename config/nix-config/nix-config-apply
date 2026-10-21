@@ -18,21 +18,107 @@ while (( $# )); do
     *) nix_config_usage_error 'usage: nix-config-apply [--gc] [--accept-zap HASH]' ;;
   esac
 done
-flake_ref=$(nix_config_snapshot "$repo")
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/nix-config-apply.XXXXXX")
+trap 'rm -rf -- "$work_dir"' EXIT
+flake_ref=$(nix_config_snapshot "$repo" "$work_dir/source")
 ulimit -n 65536 2>/dev/null || true
 cd -- "$repo"
 
-preflight_args=(--snapshot "$flake_ref")
+preflight_args=(--snapshot "$flake_ref" --handoff "$work_dir")
 if [[ -n "$accept_zap" ]]; then
   preflight_args+=(--accept-zap "$accept_zap")
 fi
 "$script_dir/nix-config-preflight" "${preflight_args[@]}"
 
 system_name=$(uname -s)
+homebrew_prefix=/opt/homebrew
 if [[ "${NIX_CONFIG_TESTING:-0}" == 1 ]]; then
   system_name=${NIX_CONFIG_TEST_SYSTEM:-$system_name}
+  homebrew_prefix=${NIX_CONFIG_TEST_HOMEBREW_PREFIX:-$homebrew_prefix}
 fi
+
+# Activation only checks the Homebrew cleanup (the gate in
+# modules/homebrew.nix) and aborts while the new Brewfile would still
+# uninstall something. So the list the preflight just bound to the approval is
+# removed here, before the switch, with the same pinned brew, taps and Brewfile
+# that produced it. The live brew still pairs with the previous generation's
+# taps: it may not load the new Brewfile at all, and it could compute a
+# different list than the approved one.
+remove_approved_cleanup() {
+  local brew_bin
+  local removal_status=0
+  local remaining_status=0
+  brew_bin=$(<"$work_dir/brew")
+
+  # nix-darwin runs Bundle as the prefix owner; never remove packages as root
+  # or as another user.
+  if [[ ! -O "$homebrew_prefix" ]]; then
+    printf 'error: run nix-config-apply as the owner of %s to remove the approved cleanup list\n' "$homebrew_prefix" >&2
+    exit 2
+  fi
+
+  printf 'Removing the approved cleanup list with the pinned Homebrew...\n'
+  HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle cleanup \
+    --all --zap --force --file="$work_dir/Brewfile" || removal_status=$?
+
+  # Bundle ignores failed uninstalls, and a forced run that fails (for example
+  # in its trailing `brew cleanup`) may have removed only part of the list, so
+  # always confirm that nothing is left that would make the activation check
+  # abort the switch.
+  HOMEBREW_NO_AUTO_UPDATE=1 "$brew_bin" bundle cleanup \
+    --all --zap --file="$work_dir/Brewfile" </dev/null >"$work_dir/remaining.txt" 2>&1 \
+    || remaining_status=$?
+  if (( removal_status != 0 || remaining_status != 0 )) || grep -Eq '^Would (uninstall|untap)' "$work_dir/remaining.txt"; then
+    cat "$work_dir/remaining.txt" >&2
+    if (( removal_status != 0 )); then
+      printf 'error: the forced cleanup exited with status %d\n' "$removal_status" >&2
+    fi
+    printf 'error: the approved cleanup did not complete; nothing was activated\n' >&2
+    exit 2
+  fi
+}
+
+# switch points the system profile at the new generation before it runs
+# activate, so a switch that the cleanup gate aborts would leave the profile
+# on a generation that never ran, and the next boot would half-activate it.
+# So activate first runs alone in check mode, which stops after the gate and
+# nix-darwin's checks, before anything changes. Not via `darwin-rebuild
+# check`: activate starts with `#!/usr/bin/env -i`, which also clears the
+# checkActivation that darwin-rebuild exports, so that runs the complete
+# activation without moving the profile. Calling the interpreter directly
+# keeps the empty environment plus that one variable.
+check_activation() {
+  local system
+  local shebang=
+  local interpreter
+  local check_status=0
+
+  # The link keeps the built system alive until the switch has used it.
+  system=$(nix build --out-link "$work_dir/system" --print-out-paths --no-update-lock-file \
+    "$flake_ref#darwinConfigurations.macos.system")
+  if [[ -z "$system" || "$system" == *$'\n'* ]]; then
+    printf 'error: the system build returned an invalid output path\n' >&2
+    exit 2
+  fi
+  IFS= read -r shebang <"$system/activate" || true
+  interpreter=${shebang#'#!/usr/bin/env -i '}
+  if [[ "$interpreter" == "$shebang" || ! "$interpreter" =~ ^/[^[:space:]]+$ || ! -x "$interpreter" ]]; then
+    printf 'error: unexpected first line in %s/activate: %s\n' "$system" "$shebang" >&2
+    exit 2
+  fi
+
+  sudo -- /usr/bin/env -i checkActivation=1 "$interpreter" "$system/activate" || check_status=$?
+  if (( check_status != 0 )); then
+    printf 'error: the activation checks failed; nothing was activated and the system profile is unchanged\n' >&2
+    exit "$check_status"
+  fi
+}
+
 if [[ "$system_name" == Darwin ]]; then
+  if [[ -f "$work_dir/brew" ]]; then
+    remove_approved_cleanup
+  fi
+  check_activation
   nix_bin=$(command -v nix)
   sudo -- "$nix_bin" run "$flake_ref#darwin-rebuild" -- switch --flake "$flake_ref#macos"
 else

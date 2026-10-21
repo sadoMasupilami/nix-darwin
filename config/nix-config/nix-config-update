@@ -9,12 +9,62 @@ repo=$(nix_config_resolve_repo)
 nix_config_require_repo "$repo"
 ulimit -n 65536 2>/dev/null || true
 
-mode=${1:-all}
-if (( $# > 1 )); then
-  nix_config_usage_error "usage: nix-config-update [all|homebrew]"
-fi
+usage='usage: nix-config-update [--yes] [all|homebrew]'
+mode=
+assume_yes=false
+while (( $# )); do
+  case "$1" in
+    # Skips the confirmation for changed third-party taps in unattended runs.
+    --yes) assume_yes=true; shift ;;
+    all | homebrew)
+      [[ -z "$mode" ]] || nix_config_usage_error "$usage"
+      mode=$1; shift ;;
+    *) nix_config_usage_error "$usage" ;;
+  esac
+done
+mode=${mode:-all}
 
 cd -- "$repo"
+
+# nix-homebrew and every homebrew-* tap input, read from the lock so a new tap
+# input joins the cohort without editing this script.
+homebrew_inputs() {
+  jq -r '.nodes.root.inputs // {} | keys[] | select(. == "nix-homebrew" or startswith("homebrew-"))' flake.lock
+}
+
+# Lists every tap input not maintained by Homebrew itself whose lock entry
+# differs from the lock file in $1, with a link to review the change.
+changed_third_party_taps() {
+  jq -r --slurpfile before "$1" '
+    def taps:
+      . as $lock
+      | ($lock.nodes.root.inputs // {})
+      | to_entries[]
+      | select((.key | startswith("homebrew-")) and (.value | type) == "string")
+      | {key, value: ($lock.nodes[.value].locked // {})}
+      | select((.value.owner // "" | ascii_downcase) != "homebrew");
+    ([$before[0] | taps] | from_entries) as $old
+    | taps
+    | .key as $input
+    | .value as $new
+    | select($new != $old[$input])
+    | ($old[$input].rev // null) as $old_rev
+    | "  \($input) (\($new.owner)/\($new.repo)): \(($old_rev // "none")[0:12]) -> \(($new.rev // "none")[0:12])",
+      if $new.type != "github" then
+        empty
+      elif $old_rev then
+        "    https://github.com/\($new.owner)/\($new.repo)/compare/\($old_rev)...\($new.rev)"
+      else
+        "    https://github.com/\($new.owner)/\($new.repo)/tree/\($new.rev)"
+      end
+  ' flake.lock
+}
+
+# Record the revisions before updating; HEAD may already differ from the
+# working-tree lock file.
+lock_before=$(mktemp "${TMPDIR:-/tmp}/nix-config-update.XXXXXX")
+trap 'rm -f -- "$lock_before"' EXIT
+cp -- flake.lock "$lock_before"
 
 case "$mode" in
   all)
@@ -23,20 +73,52 @@ case "$mode" in
   homebrew)
     # Keep Homebrew itself and all tap sources in one compatibility cohort.
     # This changes only flake.lock; it never runs brew or an activation.
-    nix flake update \
-      nix-homebrew \
-      homebrew-core \
-      homebrew-cask \
-      homebrew-azd \
-      homebrew-silverstein-tap
-    ;;
-  *)
-    nix_config_usage_error "usage: nix-config-update [all|homebrew]"
+    inputs=()
+    while IFS= read -r input; do
+      inputs+=("$input")
+    done < <(homebrew_inputs)
+    # A bare `nix flake update` would move every input instead.
+    if (( ${#inputs[@]} == 0 )); then
+      printf 'error: flake.lock has no nix-homebrew or homebrew-* inputs\n' >&2
+      exit 2
+    fi
+    nix flake update "${inputs[@]}"
     ;;
 esac
 
-if ! "$script_dir/nix-config-preflight"; then
-  printf 'error: preflight failed after updating %s\n' "$mode" >&2
-  printf 'flake.lock was intentionally left at the updated revisions for inspection; apply is blocked.\n' >&2
-  exit 1
+# The preflight loads tap code and activation runs it, so a third-party tap
+# change is shown for review before anything evaluates it.
+tap_changes=$(changed_third_party_taps "$lock_before")
+if [[ -n "$tap_changes" ]]; then
+  printf 'Third-party Homebrew taps changed; their code runs in the preflight and during activation:\n%s\n' "$tap_changes" >&2
+  if [[ "$assume_yes" != true ]]; then
+    printf 'Review the changes above. Continue with the preflight? [y/N] ' >&2
+    answer=
+    read -r answer || true
+    case "$answer" in
+      [yY] | [yY][eE][sS]) ;;
+      *)
+        printf '\nStopped before the preflight. flake.lock keeps the updated revisions:\n' >&2
+        printf 'run nix-config-preflight after review, or restore flake.lock to discard them.\n' >&2
+        exit 1
+        ;;
+    esac
+  fi
 fi
+
+preflight_status=0
+"$script_dir/nix-config-preflight" || preflight_status=$?
+case "$preflight_status" in
+  0)
+    ;;
+  3)
+    # Not a failure: the updated lock only needs the cleanup approval above.
+    printf 'flake.lock was updated; review the cleanup list, then run the nix-config-apply command shown above.\n' >&2
+    exit 3
+    ;;
+  *)
+    printf 'error: preflight failed after updating %s\n' "$mode" >&2
+    printf 'flake.lock was intentionally left at the updated revisions for inspection; apply is blocked.\n' >&2
+    exit "$preflight_status"
+    ;;
+esac

@@ -65,6 +65,9 @@ nix_config_usage_error() {
 # that exact path for checks and activation, even if the checkout changes
 # meanwhile. A clean checkout also passes its commit on, so the generation
 # keeps its configurationRevision; a dirty tree stays unlabeled.
+#
+# usage: nix_config_snapshot REPO [GC_ROOT]
+# With GC_ROOT, the snapshot stays a GC root for as long as that link exists.
 nix_config_snapshot() {
   local git_ref
   local metadata
@@ -79,6 +82,11 @@ nix_config_snapshot() {
   if [[ -n "$rev" && ! "$rev" =~ ^[0-9a-f]{40}$ ]]; then
     printf 'error: unexpected snapshot revision: %s\n' "$rev" >&2
     return 2
+  fi
+  # prefetch drops its temporary root on exit, so a collection running during
+  # the check or the switch could otherwise delete the snapshot in use.
+  if [[ -n "${2:-}" ]]; then
+    nix build --out-link "$2" "$store_path" >/dev/null || return
   fi
   printf 'path:%s%s\n' "$store_path" "${rev:+?rev=$rev}"
 }
