@@ -34,8 +34,7 @@ let
       {
         name = baseNameOf wheel.url;
         path = fetchurl {
-          inherit (wheel) url;
-          hash = wheel.hash;
+          inherit (wheel) url hash;
         };
       }
     ) (builtins.filter (p: p.source ? registry) lock.package)

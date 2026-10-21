@@ -5,12 +5,18 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     nix-darwin = {
-      url = "github:LnL7/nix-darwin";
+      url = "github:nix-darwin/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     home-manager = {
       url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Prebuilt nix-locate database, so nix-index never indexes nixpkgs locally.
+    nix-index-database = {
+      url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -49,16 +55,16 @@
       nixpkgs,
       nix-darwin,
       home-manager,
+      nix-index-database,
       nix-homebrew,
       determinate,
       ...
     }:
     let
+      inherit (nixpkgs) lib;
+
       machineConfig = import ./machine-config.nix;
       inherit (machineConfig) username;
-
-      nixHomebrewLock = builtins.fromJSON (builtins.readFile (inputs.nix-homebrew + "/flake.lock"));
-      homebrewVersion = nixHomebrewLock.nodes."brew-src".original.ref;
 
       darwinSystem = machineConfig.darwin.system;
       linuxSystem = machineConfig.linux.system;
@@ -67,13 +73,44 @@
         linuxSystem
       ];
 
-      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      pkgsFor =
+      forAllSystems = lib.genAttrs supportedSystems;
+
+      overlay = import ./overlays/libserdes-fmt.nix;
+
+      # One package set per system, shared by nix-darwin, Home Manager,
+      # packages and checks. An attrset, not a function: Nix does not cache
+      # function results, so each call would instantiate nixpkgs again.
+      pkgsFor = forAllSystems (
         system:
         import nixpkgs {
           inherit system;
           config.allowUnfree = true;
-        };
+          overlays = [ overlay ];
+        }
+      );
+      darwinPkgs = pkgsFor.${darwinSystem};
+      linuxPkgs = pkgsFor.${linuxSystem};
+
+      # Home Manager modules for both platforms. home.nix imports the
+      # repo-local ones; the platform-specific extras are added below.
+      sharedHomeModules = [
+        nix-index-database.homeModules.nix-index
+        ./home.nix
+      ];
+
+      homeSpecialArgs = host: {
+        inherit username;
+        claudeModsSource = inputs.claude-code-playground;
+        inherit (host) homeDirectory homeStateVersion repoDirectory;
+      };
+
+      # fetch-models.py imports huggingface_hub, so mypy needs it for the types.
+      mkPythonEnv =
+        pkgs:
+        pkgs.python313.withPackages (p: [
+          p.huggingface-hub
+          p.mypy
+        ]);
 
       mkFormatter =
         pkgs:
@@ -116,9 +153,42 @@
             touch "$out"
           '';
 
+      mkNixLint =
+        pkgs:
+        pkgs.runCommand "nix-lint"
+          {
+            nativeBuildInputs = [
+              pkgs.deadnix
+              pkgs.statix
+            ];
+            src = self;
+          }
+          ''
+            cd "$src"
+            statix check .
+            deadnix --fail .
+            touch "$out"
+          '';
+
+      mkPythonTypeCheck =
+        pkgs:
+        pkgs.runCommand "python-types"
+          {
+            nativeBuildInputs = [ (mkPythonEnv pkgs) ];
+            src = self;
+          }
+          ''
+            cd "$src"
+            mypy --strict --cache-dir="$TMPDIR/mypy" \
+              config/qwen-meeting/runtime/fetch-models.py tests/*.py
+            touch "$out"
+          '';
+
+      # The same per-file rules as the pre-commit hook: .github/hooks/check-shell.sh
+      # decides by shebang or file name, so everything else is skipped.
       mkShellCheck =
         pkgs:
-        pkgs.runCommand "shell-syntax"
+        pkgs.runCommand "shell-lint"
           {
             nativeBuildInputs = [
               pkgs.findutils
@@ -129,14 +199,8 @@
           }
           ''
             cd "$src"
-
-            while IFS= read -r -d $'\0' script; do
-              case "$(head -n 1 "$script")" in
-                *bash*) shellcheck --severity=error "$script" ;;
-                *zsh*) zsh -n "$script" ;;
-              esac
-            done < <(find config tests -type f -print0)
-
+            find config tests .github/hooks -type f -print0 \
+              | xargs -0 bash .github/hooks/check-shell.sh
             touch "$out"
           '';
 
@@ -147,7 +211,12 @@
             nativeBuildInputs = [
               pkgs.bash
               pkgs.coreutils
+              pkgs.diffutils
+              pkgs.findutils
+              pkgs.gawk
+              pkgs.git
               pkgs.gnugrep
+              pkgs.gnused
               pkgs.jq
             ];
             src = self;
@@ -155,9 +224,16 @@
           ''
             cp -R "$src" source
             chmod -R +w source
-            patchShebangs source/config/nix-config source/tests
+            patchShebangs source/config source/tests
             cd source
-            ./tests/nix-config-helpers.sh
+            for test in nix-config-helpers nix-gc-recent glab-sync ssh-config-reconcile; do
+              if [[ ! -f "tests/$test.sh" ]]; then
+                echo "error: tests/$test.sh is missing" >&2
+                exit 1
+              fi
+              echo "running tests/$test.sh"
+              bash "./tests/$test.sh"
+            done
             touch "$out"
           '';
 
@@ -171,8 +247,8 @@
           linuxDrvPath = builtins.unsafeDiscardStringContext linuxHomeConfiguration.activationPackage.drvPath;
         in
         pkgs.runCommand "configuration-evaluation" { } ''
-          test -n ${nixpkgs.lib.escapeShellArg darwinDrvPath}
-          test -n ${nixpkgs.lib.escapeShellArg linuxDrvPath}
+          test -n ${lib.escapeShellArg darwinDrvPath}
+          test -n ${lib.escapeShellArg linuxDrvPath}
           touch "$out"
         '';
 
@@ -182,7 +258,6 @@
           {
             nativeBuildInputs = [
               pkgs.bash
-              pkgs.bats
               pkgs.coreutils
               pkgs.python313
               pkgs.uv
@@ -200,195 +275,80 @@
             touch "$out"
           '';
 
-      # Build an isolated launcher from the exact nix-homebrew activation
-      # assets. It reads the current /opt/homebrew inventory, but runs the
-      # locked Homebrew code and taps with disposable config/cache state. This
-      # breaks the first-apply deadlock when the live Brew is too old to parse
-      # the newly locked core tap.
-      mkHomebrewPreflight =
+      # Runs the usage-meter tests and validates both linked mods with the
+      # nixpkgs Claude Code, so a claude-code-playground pin update is
+      # validated too. Reviewing the new hooks stays a manual step. The test
+      # runner needs the macOS ICU data in /usr/share/icu, so this check
+      # requires an unsandboxed build, the Nix default on macOS.
+      mkClaudeModsCheck =
         pkgs:
-        let
-          activation = pkgs.writeText "nix-homebrew-activation" ''
-            ${darwinConfiguration.config.system.activationScripts.setup-homebrew.text}
-            # Evaluation identity: ${self.dirtyRev or self.rev or "uncommitted"}
-          '';
-        in
-        pkgs.runCommandLocal "homebrew-preflight"
+        pkgs.runCommand "claude-mods"
           {
-            inherit activation;
-            wrapperTemplate = ./config/nix-config/homebrew-preflight-wrapper.sh.in;
-            # Same tap trust entries that nix-homebrew persists on activation.
-            trustStore = pkgs.writeText "homebrew-preflight-trust.json" (
-              builtins.toJSON { trustedtaps = darwinConfiguration.config.nix-homebrew.trust.taps; }
-            );
+            nativeBuildInputs = [ pkgs.claude-code ];
+            usageMeter = ./config/claude-mods/usage-meter;
+            tokenWeather = "${inputs.claude-code-playground}/claude-code/mods/token-weather";
           }
           ''
-            setup_script=$(grep -Eo '/nix/store/[a-z0-9]{32}-setup-homebrew' "$activation" | head -n 1)
-            test -n "$setup_script"
-            test -x "$setup_script"
-
-            brew_code=$(sed -n 's|^[[:space:]]*/bin/ln -shf "\([^"]*\)" "\$HOMEBREW_LIBRARY/Homebrew"$|\1|p' "$setup_script")
-            taps=$(sed -n 's|^[[:space:]]*/bin/ln -shf "\([^"]*\)" "\$HOMEBREW_LIBRARY/Taps"$|\1|p' "$setup_script")
-            prefix_wrapper=$(sed -n 's|^[[:space:]]*/bin/ln -shf "\([^"]*\)" "\$BIN_BREW"$|\1|p' "$setup_script")
-
-            for value in "$brew_code" "$taps" "$prefix_wrapper"; do
-              test -n "$value"
-              test "$(printf '%s' "$value" | wc -l | tr -d ' ')" = 0
-              case "$value" in
-                /nix/store/*) ;;
-                *) exit 1 ;;
-              esac
-            done
-            test -f "$brew_code/brew.sh"
-            test -d "$taps"
-            test -x "$prefix_wrapper"
-
-            # The copy is scoped to the preflight package and never replaces
-            # the Homebrew code that nix-homebrew activates on the system.
-            preflight_brew="$out/share/nix-homebrew-preflight/Homebrew"
-
-            mkdir -p "$out/bin" "$out/libexec" "$out/share/nix-homebrew-preflight"
-            cp -R "$brew_code" "$preflight_brew"
-            chmod -R u+w "$preflight_brew"
-
-            # Under no-install-from-API mode the pinned Core/Cask paths already
-            # appear in `installed`; using the generic Tap instances avoids a
-            # Homebrew 6 singleton edge case while preserving their contents.
-            substituteInPlace "$preflight_brew/tap.rb" \
-              --replace-fail \
-                'return CoreTap.instance if ["Homebrew", "Linuxbrew"].include?(user) && ["core", "homebrew"].include?(repository)' \
-                'return CoreTap.instance if !Homebrew::EnvConfig.no_install_from_api? && ["Homebrew", "Linuxbrew"].include?(user) && ["core", "homebrew"].include?(repository)' \
-              --replace-fail \
-                'return CoreCaskTap.instance if user == "Homebrew" && repository == "cask"' \
-                'return CoreCaskTap.instance if !Homebrew::EnvConfig.no_install_from_api? && user == "Homebrew" && repository == "cask"' \
-              --replace-fail \
-                'HOMEBREW_TAP_DIRECTORY.subdirs.flat_map(&:subdirs).map { from_path(it) }' \
-                'HOMEBREW_TAP_DIRECTORY.subdirs.flat_map(&:subdirs).filter_map { from_path(it) }'
-
-            cp "$prefix_wrapper" "$out/libexec/brew"
-            chmod u+w "$out/libexec/brew"
-
-            old_brew_file_line=$(grep '^export HOMEBREW_BREW_FILE=' "$out/libexec/brew")
-            test -n "$old_brew_file_line"
-            substituteInPlace "$out/libexec/brew" \
-              --replace-fail 'export HOMEBREW_LIBRARY="/opt/homebrew/Library"' \
-                'export HOMEBREW_LIBRARY="''${NIX_HOMEBREW_PREFLIGHT_LIBRARY:?}"' \
-              --replace-fail "$old_brew_file_line" \
-                "export HOMEBREW_BREW_FILE=\"$out/bin/brew\"" \
-              --replace-fail '  HOMEBREW_BREW_FILE' \
-                '  HOMEBREW_BREW_FILE HOMEBREW_CACHE HOMEBREW_LOGS HOMEBREW_TEMP HOMEBREW_NO_ANALYTICS HOMEBREW_NO_AUTO_UPDATE HOMEBREW_NO_ENV_HINTS HOMEBREW_NO_INSTALL_FROM_API HOMEBREW_VERSION MAS_NO_AUTO_INDEX HOMEBREW_DEV_CMD_RUN'
-
-            substitute "$wrapperTemplate" "$out/bin/brew" \
-              --replace-fail '@brewCode@' "$preflight_brew" \
-              --replace-fail '@brewVersion@' ${nixpkgs.lib.escapeShellArg homebrewVersion} \
-              --replace-fail '@taps@' "$taps" \
-              --replace-fail '@trustStore@' "$trustStore" \
-              --replace-fail '@innerWrapper@' "$out/libexec/brew"
-            chmod 0555 "$out/bin/brew" "$out/libexec/brew"
-
-            printf '%s\n' "$preflight_brew" > "$out/share/nix-homebrew-preflight/brew-code"
-            printf '%s\n' "$taps" > "$out/share/nix-homebrew-preflight/taps"
+            # An empty HOME and no update check or telemetry: the check needs
+            # neither an account nor the network.
+            export HOME="$TMPDIR"
+            export DISABLE_AUTOUPDATER=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+            cp -R "$usageMeter" usage-meter
+            chmod -R u+w usage-meter
+            claude plugin test usage-meter
+            claude plugin validate usage-meter
+            claude plugin validate "$tokenWeather"
+            touch "$out"
           '';
-
-      linuxPkgs = pkgsFor linuxSystem;
-      linuxHomeDirectory = machineConfig.linux.homeDirectory;
-      linuxRepoDirectory = machineConfig.linux.repoDirectory;
 
       linuxHomeConfiguration = home-manager.lib.homeManagerConfiguration {
         pkgs = linuxPkgs;
-        modules = [
+        modules = sharedHomeModules ++ [
           ./modules/home-manager-base.nix
-          ./home.nix
-          ./modules/local-private-tools.nix
-          ./modules/nix-config-helpers.nix
+          ./modules/linux-gc.nix
         ];
-        extraSpecialArgs = {
-          inherit username;
-          claudeModsSource = inputs.claude-code-playground;
-          homeDirectory = linuxHomeDirectory;
-          repoDirectory = linuxRepoDirectory;
-        };
+        extraSpecialArgs = homeSpecialArgs machineConfig.linux;
       };
 
       darwinConfiguration = nix-darwin.lib.darwinSystem {
-        system = darwinSystem;
         specialArgs = {
-          inherit
-            inputs
-            self
-            username
-            darwinSystem
-            ;
+          inherit inputs username;
           inherit (machineConfig.darwin)
             homeDirectory
             hostName
             repoDirectory
+            stateVersion
             ;
         };
         modules = [
+          # nix-darwin and Home Manager (useGlobalPkgs) use the flake's
+          # package set, overlays included.
+          { nixpkgs.pkgs = darwinPkgs; }
+
           ./darwin.nix
 
-          # Determinate manages /etc/nix/nix.conf and nix.custom.conf.
+          # Determinate manages /etc/nix/nix.conf and nix.custom.conf; the
+          # settings live in modules/nix-settings.nix.
           determinate.darwinModules.default
-          {
-            determinateNix = {
-              enable = true;
-              customSettings = {
-                # Preserve the existing trusted local-development behavior.
-                sandbox = false;
-                trusted-users = [
-                  "root"
-                  username
-                ];
-                substituters = "https://cache.nixos.org https://devenv.cachix.org https://nixpkgs-unfree.cachix.org";
-                trusted-substituters = "https://cache.nixos.org https://devenv.cachix.org https://nixpkgs-unfree.cachix.org";
-                trusted-public-keys = "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
-              };
-            };
-          }
-
           nix-homebrew.darwinModules.nix-homebrew
-          {
-            nix.settings.experimental-features = [
-              "nix-command"
-              "flakes"
-            ];
-
-            # The non-flake brew-src input has no `version` attribute by
-            # default, so nix-homebrew cannot embed the locked tag into its
-            # patched source unless we add it explicitly.
-            nix-homebrew.package = inputs.nix-homebrew.inputs.brew-src // {
-              name = "brew-${homebrewVersion}";
-              version = homebrewVersion;
-            };
-          }
 
           home-manager.darwinModules.home-manager
           {
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
-              extraSpecialArgs = {
-                inherit username;
-                claudeModsSource = inputs.claude-code-playground;
-                inherit (machineConfig.darwin)
-                  homeDirectory
-                  hostName
-                  repoDirectory
-                  ;
-              };
-              sharedModules = [
-                ./modules/home-manager-base.nix
+              extraSpecialArgs = homeSpecialArgs machineConfig.darwin;
+              users.${username}.imports = sharedHomeModules ++ [
                 ./modules/local-private-tools.nix
-                ./modules/nix-config-helpers.nix
               ];
-              users.${username} = import ./home.nix;
             };
           }
         ];
       };
 
-      homebrewPreflight = mkHomebrewPreflight (pkgsFor darwinSystem);
+      # Built in modules/homebrew.nix (packages/homebrew-preflight), whose
+      # activation gate runs the same launcher as nix-config-preflight.
+      homebrewPreflight = darwinConfiguration.config.system.build.homebrewPreflight;
     in
     {
       darwinConfigurations.macos = darwinConfiguration;
@@ -399,18 +359,30 @@
         default = linuxHomeConfiguration;
       };
 
-      formatter = forAllSystems (system: mkFormatter (pkgsFor system));
+      overlays.default = overlay;
+
+      formatter = forAllSystems (system: mkFormatter pkgsFor.${system});
 
       devShells = forAllSystems (
         system:
         let
-          pkgs = pkgsFor system;
+          pkgs = pkgsFor.${system};
         in
         {
+          # Everything the checks and the local test commands call.
           default = pkgs.mkShellNoCC {
             packages = [
+              pkgs.bash
+              pkgs.deadnix
+              pkgs.git
+              pkgs.jq
+              (mkPythonEnv pkgs)
               pkgs.nixfmt
+              pkgs.pre-commit
               pkgs.shellcheck
+              pkgs.statix
+              pkgs.uv
+              pkgs.zsh
             ];
           };
         }
@@ -442,25 +414,30 @@
 
       packages.${darwinSystem} = {
         homebrew-preflight = homebrewPreflight;
-        qwen-meeting-runtime = (pkgsFor darwinSystem).callPackage ./packages/qwen-meeting-runtime { };
+        qwen-meeting-runtime = darwinPkgs.callPackage ./packages/qwen-meeting-runtime { };
       };
 
       checks = {
         ${darwinSystem} = {
           darwin = darwinConfiguration.system;
-          evaluation = mkEvaluationCheck (pkgsFor darwinSystem);
-          formatting = mkFormattingCheck (pkgsFor darwinSystem);
+          claude-mods = mkClaudeModsCheck darwinPkgs;
+          evaluation = mkEvaluationCheck darwinPkgs;
+          formatting = mkFormattingCheck darwinPkgs;
           homebrew-preflight = homebrewPreflight;
-          local-private-tools = mkLocalToolsCheck (pkgsFor darwinSystem);
+          local-private-tools = mkLocalToolsCheck darwinPkgs;
           qwen-meeting-runtime = self.packages.${darwinSystem}.qwen-meeting-runtime;
-          nix-config-helpers = mkHelperTests (pkgsFor darwinSystem);
-          shell = mkShellCheck (pkgsFor darwinSystem);
+          nix-config-helpers = mkHelperTests darwinPkgs;
+          nix-lint = mkNixLint darwinPkgs;
+          python-types = mkPythonTypeCheck darwinPkgs;
+          shell = mkShellCheck darwinPkgs;
         };
         ${linuxSystem} = {
           evaluation = mkEvaluationCheck linuxPkgs;
           linux-home-manager = linuxHomeConfiguration.activationPackage;
           formatting = mkFormattingCheck linuxPkgs;
           nix-config-helpers = mkHelperTests linuxPkgs;
+          nix-lint = mkNixLint linuxPkgs;
+          python-types = mkPythonTypeCheck linuxPkgs;
           shell = mkShellCheck linuxPkgs;
         };
       };

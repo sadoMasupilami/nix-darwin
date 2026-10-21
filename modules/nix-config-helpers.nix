@@ -5,7 +5,6 @@
   ...
 }:
 let
-  isSupported = pkgs.stdenv.hostPlatform.isDarwin || pkgs.stdenv.hostPlatform.isLinux;
   names = [
     "nix-config-update"
     "nix-config-preflight"
@@ -39,15 +38,13 @@ let
 
 in
 {
-  home.file = lib.mkIf isSupported (
-    builtins.listToAttrs (
-      map (name: {
-        name = ".bin/${name}";
-        value = {
-          executable = true;
-          source = "${helpers}/bin/${name}";
-        };
-      }) names
-    )
+  home.file = builtins.listToAttrs (
+    map (name: {
+      name = ".bin/${name}";
+      value = {
+        executable = true;
+        source = "${helpers}/bin/${name}";
+      };
+    }) names
   );
 }
