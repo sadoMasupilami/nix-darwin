@@ -1,60 +1,102 @@
 name: Flake checks
 
 on:
-  pull_request:
+  # Branch pushes are covered by their pull request, so only main runs on push.
   push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
+  # The weekly input update reuses these jobs with its freshly updated lock.
+  workflow_call:
+    inputs:
+      flake-lock:
+        description: flake.lock content that replaces the committed lock
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
-  group: flake-checks-${{ github.ref }}
+  # github.workflow names the caller when reused, so the weekly run never
+  # cancels a push run on main or the other way round.
+  group: flake-checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   evaluate:
     name: Evaluate every system
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/determinate-nix-action@4d65ea9cab522b6d9f29a170aed23ededc1b27af # v3.23.0
+      - name: Use the updated flake.lock
+        if: inputs.flake-lock != ''
+        env:
+          FLAKE_LOCK: ${{ inputs.flake-lock }}
+        run: printf '%s\n' "$FLAKE_LOCK" > flake.lock
       - name: Evaluate all flake checks
         run: nix flake check --all-systems --no-build --show-trace
 
-  linux:
-    name: Linux Home Manager and static checks
-    needs: evaluate
-    runs-on: ubuntu-24.04
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux Home Manager and static checks
+            runner: ubuntu-24.04
+            system: x86_64-linux
+          - name: Apple Silicon nix-darwin and static checks
+            runner: macos-26
+            system: aarch64-darwin
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      SYSTEM: ${{ matrix.system }}
+      # Only main writes the store cache; pull requests and the weekly input
+      # update restore it but never replace it with their own closures.
+      SAVE_CACHE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3
-      - name: Build Linux checks
-        run: >-
-          nix build --print-build-logs
-          .#checks.x86_64-linux.linux-home-manager
-          .#checks.x86_64-linux.evaluation
-          .#checks.x86_64-linux.formatting
-          .#checks.x86_64-linux.shell
-          .#checks.x86_64-linux.nix-config-helpers
-
-  darwin:
-    name: Apple Silicon nix-darwin and static checks
-    needs: evaluate
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v6
-      - uses: DeterminateSystems/determinate-nix-action@v3
-      - name: Confirm runner architecture
-        run: test "$(uname -m)" = arm64
-      - name: Build Darwin checks
-        run: >-
-          nix build --print-build-logs
-          .#checks.aarch64-darwin.darwin
-          .#checks.aarch64-darwin.evaluation
-          .#checks.aarch64-darwin.formatting
-          .#checks.aarch64-darwin.homebrew-preflight
-          .#checks.aarch64-darwin.local-private-tools
-          .#checks.aarch64-darwin.qwen-meeting-runtime
-          .#checks.aarch64-darwin.shell
-          .#checks.aarch64-darwin.nix-config-helpers
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/determinate-nix-action@4d65ea9cab522b6d9f29a170aed23ededc1b27af # v3.23.0
+      - name: Confirm runner system
+        run: test "$(nix eval --impure --raw --expr builtins.currentSystem)" = "$SYSTEM"
+      - name: Use the updated flake.lock
+        if: inputs.flake-lock != ''
+        env:
+          FLAKE_LOCK: ${{ inputs.flake-lock }}
+        run: printf '%s\n' "$FLAKE_LOCK" > flake.lock
+      # Unfree packages such as terraform are in no public binary cache, so
+      # without this every run rebuilds them from source.
+      - name: Restore and save the Nix store
+        id: nix-cache
+        uses: nix-community/cache-nix-action@7df957e333c1e5da7721f60227dbba6d06080569 # v7.0.2
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          save: ${{ env.SAVE_CACHE }}
+          # Compressed, one store of at most this size per runner fits the
+          # 10 GB repository cache limit.
+          gc-max-store-size-linux: 6G
+          gc-max-store-size-macos: 8G
+      - name: Build every check of this system
+        run: nix flake check -L --keep-going --show-trace
+      # nix flake check leaves no GC roots, so the size-limited collection
+      # before saving would otherwise drop arbitrary check outputs, including
+      # the expensive source builds.
+      - name: Keep the check outputs in the saved store
+        if: env.SAVE_CACHE == 'true' && steps.nix-cache.outputs.hit-primary-key != 'true'
+        run: |
+          names=$(nix eval --raw ".#checks.$SYSTEM" --apply 'checks: toString (builtins.attrNames checks)')
+          read -ra checks <<<"$names"
+          nix build --out-link "$RUNNER_TEMP/check" "${checks[@]/#/.#checks.$SYSTEM.}"

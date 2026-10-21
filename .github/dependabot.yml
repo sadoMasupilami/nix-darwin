@@ -1,0 +1,15 @@
+version: 2
+updates:
+  # Keeps the SHA-pinned actions and their version comments current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Give a compromised or broken release a week to be noticed upstream.
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

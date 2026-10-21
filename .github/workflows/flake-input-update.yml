@@ -1,0 +1,64 @@
+name: Flake input update
+
+# Checks the flake against the newest inputs so that upstream breakage shows
+# up before the next local nix-config-update. Nothing is committed; updates
+# still go through nix-config-update and its local preflight.
+on:
+  schedule:
+    # Mondays, off the full hour when the scheduler is busiest.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+# Must differ from the group of the reused workflow, or the two deadlock.
+concurrency:
+  group: flake-input-update-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    name: Update flake inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      flake-lock: ${{ steps.update.outputs.flake-lock }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/determinate-nix-action@4d65ea9cab522b6d9f29a170aed23ededc1b27af # v3.23.0
+      # In CI the homebrew-* tap trees are only linked into the system; no
+      # check reads a formula or cask. Whether new tap revisions suit the
+      # installed apps is decided by nix-config-preflight against the live
+      # /opt/homebrew, so moving them here would prove nothing. nix-homebrew
+      # stays included: the homebrew-preflight check patches and builds its
+      # Homebrew code.
+      - name: Update every input except the Homebrew taps
+        id: update
+        run: |
+          names=$(jq -r '.nodes.root.inputs | keys[] | select(startswith("homebrew-") | not)' flake.lock)
+          mapfile -t inputs <<<"$names"
+          nix flake update "${inputs[@]}" 2>&1 | tee "$RUNNER_TEMP/update.log"
+          {
+            echo '```'
+            cat "$RUNNER_TEMP/update.log"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          {
+            echo 'flake-lock<<FLAKE_LOCK_EOF'
+            cat flake.lock
+            echo 'FLAKE_LOCK_EOF'
+          } >>"$GITHUB_OUTPUT"
+
+  checks:
+    name: Checks
+    needs: update
+    uses: ./.github/workflows/flake-checks.yml
+    with:
+      flake-lock: ${{ needs.update.outputs.flake-lock }}
