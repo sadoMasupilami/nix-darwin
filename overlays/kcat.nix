@@ -6,7 +6,8 @@
 # FMT_DEPRECATED_HEAVY_CORE is defined, so every consumer of the header fails
 # to compile against fmt 12. Here that is libserdes' C++ half. Passing the
 # define through --CXXFLAGS does not work: libserdes uses mklove, whose
-# configure splits that value on whitespace and rejects the second token.
+# configure splits that value on whitespace and rejects the second token. With
+# GCC its C half also needs gnu17 instead of the C23 default, see below.
 #
 # avro-cpp: its CMakeLists adds -Werror for GCC only, and GCC 16 raises new
 # warnings in the 1.12.0 sources (e.g. a false -Warray-bounds positive in
@@ -45,11 +46,24 @@ in
     lib.warnIf outdated
       "overlays/kcat.nix: avro-cpp is now ${prev.avro-cpp.version}; check whether libserdes still needs -DFMT_DEPRECATED_HEAVY_CORE"
       (
-        prev.libserdes.overrideAttrs (old: {
-          NIX_CFLAGS_COMPILE = toString [
-            (old.NIX_CFLAGS_COMPILE or "")
-            "-DFMT_DEPRECATED_HEAVY_CORE"
-          ];
-        })
+        prev.libserdes.overrideAttrs (
+          old:
+          {
+            NIX_CFLAGS_COMPILE = toString [
+              (old.NIX_CFLAGS_COMPILE or "")
+              "-DFMT_DEPRECATED_HEAVY_CORE"
+            ];
+          }
+          // lib.optionalAttrs prev.stdenv.cc.isGNU {
+            # GCC 16 compiles C as C23, where glibc's <stdlib.h> declares
+            # once_flag and call_once itself. libserdes' bundled tinycthread
+            # #defines both names to their pthread counterparts, which turns
+            # those declarations into conflicting redeclarations of
+            # pthread_once_t and pthread_once. mklove hands CFLAGS from the
+            # configure environment to C compiles only, so the C++ half keeps
+            # its --std=c++17.
+            CFLAGS = "-std=gnu17";
+          }
+        )
       );
 }
