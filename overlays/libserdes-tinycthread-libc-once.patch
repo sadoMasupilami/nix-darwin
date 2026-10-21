@@ -1,0 +1,30 @@
+--- a/src/tinycthread.h
++++ b/src/tinycthread.h
+@@ -464,8 +464,16 @@
+   } once_flag;
+   #define ONCE_FLAG_INIT {0,}
+ #else
+-  #define once_flag pthread_once_t
+-  #define ONCE_FLAG_INIT PTHREAD_ONCE_INIT
++  /* C23 moved once_flag and call_once into <stdlib.h>, and glibc declares
++     them there whenever _GNU_SOURCE is set, as above. Use the C library's
++     own versions then; mapping them to pthread_once would redeclare both. */
++  #include <stdlib.h>
++  #if defined(ONCE_FLAG_INIT)
++    #define _TTHREAD_LIBC_ONCE_
++  #else
++    #define once_flag pthread_once_t
++    #define ONCE_FLAG_INIT PTHREAD_ONCE_INIT
++  #endif
+ #endif
+ 
+ /** Invoke a callback exactly once
+@@ -475,7 +483,7 @@
+  */
+ #if defined(_TTHREAD_WIN32_)
+   void call_once(once_flag *flag, void (*func)(void));
+-#else
++#elif !defined(_TTHREAD_LIBC_ONCE_)
+   #define call_once(flag,func) pthread_once(flag,func)
+ #endif
+ 

@@ -7,7 +7,7 @@
 # to compile against fmt 12. Here that is libserdes' C++ half. Passing the
 # define through --CXXFLAGS does not work: libserdes uses mklove, whose
 # configure splits that value on whitespace and rejects the second token. With
-# GCC its C half also needs gnu17 instead of the C23 default, see below.
+# glibc its bundled tinycthread also needs a patch, see below.
 #
 # avro-cpp: its CMakeLists adds -Werror for GCC only, and GCC 16 raises new
 # warnings in the 1.12.0 sources (e.g. a false -Warray-bounds positive in
@@ -54,15 +54,15 @@ in
               "-DFMT_DEPRECATED_HEAVY_CORE"
             ];
           }
-          // lib.optionalAttrs prev.stdenv.cc.isGNU {
-            # GCC 16 compiles C as C23, where glibc's <stdlib.h> declares
-            # once_flag and call_once itself. libserdes' bundled tinycthread
-            # #defines both names to their pthread counterparts, which turns
-            # those declarations into conflicting redeclarations of
-            # pthread_once_t and pthread_once. mklove hands CFLAGS from the
-            # configure environment to C compiles only, so the C++ half keeps
-            # its --std=c++17.
-            CFLAGS = "-std=gnu17";
+          // lib.optionalAttrs (prev.stdenv.hostPlatform.libc == "glibc") {
+            # glibc 2.44 declares the C23 once_flag and call_once in
+            # <stdlib.h> whenever _GNU_SOURCE is set, which libserdes'
+            # bundled tinycthread does itself, so -std=gnu17 does not help.
+            # tinycthread #defines both names to their pthread counterparts,
+            # which turns those declarations into conflicting redeclarations
+            # of pthread_once_t and pthread_once. The patch makes it use the C
+            # library's own versions when <stdlib.h> provides them.
+            patches = (old.patches or [ ]) ++ [ ./libserdes-tinycthread-libc-once.patch ];
           }
         )
       );
