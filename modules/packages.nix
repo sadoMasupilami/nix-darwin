@@ -1,6 +1,13 @@
 { lib, pkgs, ... }:
 let
   isDarwin = pkgs.stdenv.hostPlatform.isDarwin;
+
+  # macOS only lacks telnet. All of inetutils would shadow Apple's ifconfig,
+  # ping, traceroute, hostname, whois and logger.
+  inetutilsTelnet = pkgs.runCommandLocal "inetutils-telnet" { } ''
+    mkdir -p "$out/bin"
+    ln -s ${pkgs.inetutils}/bin/telnet "$out/bin/telnet"
+  '';
 in
 {
   home.packages =
@@ -14,29 +21,25 @@ in
       argo-workflows
       k9s
       eza
-      zsh-fzf-tab
       go
       kubectl
       kubernetes-helm
-      kubectx
       wget
       tilt
       terraform
       terragrunt
       pre-commit
-      inetutils
+      # On macOS, Rancher Desktop provides the daemon and links the compose and
+      # buildx plugins into ~/.docker/cli-plugins.
       docker-client
       skopeo
       tree
       nmap
-      nix-index
       glab
       gh
       bat
       fd
-      difftastic
       azure-cli
-      kubeswitch
       rar
       talosctl
       kcat
@@ -51,5 +54,6 @@ in
       ffmpeg
       ripgrep
     ]
-    ++ lib.optionals isDarwin [ python313 ];
+    ++ lib.optionals isDarwin [ inetutilsTelnet ]
+    ++ lib.optionals (!isDarwin) [ inetutils ];
 }
