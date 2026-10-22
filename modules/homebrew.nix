@@ -131,6 +131,9 @@ in
       "bambu-studio"
       "orcaslicer"
       "autodesk-fusion"
+      # Homebrew ships azure-cli as a cask that bundles Microsoft's release.
+      # In nixpkgs it depends on fabric, which is broken with invoke 3.
+      "azure-cli"
       "blender"
       "codex"
       # Minutes and Muesli both record meetings on-device; Muesli also covers

@@ -39,7 +39,6 @@ in
       gh
       bat
       fd
-      azure-cli
       rar
       talosctl
       kcat
