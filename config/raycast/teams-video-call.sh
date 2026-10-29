@@ -5,7 +5,7 @@
 # @raycast.title Teams: Video Call (Select Person + Tenant)
 # @raycast.mode silent
 # @raycast.packageName Teams
-# @raycast.description Pick a person from a private CSV, then open a Teams video call
+# @raycast.description Pick a person from a private CSV (or call the only match directly), then open a Teams video call
 # @raycast.shellPath /usr/bin/env bash
 # @raycast.argument1 { "type": "text", "placeholder": "Search (name or email)", "optional": true }
 
@@ -15,7 +15,8 @@ umask 077
 CSV_FILE="${TEAMS_PEOPLE_CSV:-$HOME/.config/raycast/teams-people.csv}"
 QUERY="${1:-}"
 OPEN_CMD="${TEAMS_CALL_OPEN_CMD:-/usr/bin/open}"
-OSASCRIPT_CMD="${TEAMS_CALL_OSASCRIPT_CMD:-/usr/bin/osascript}"
+# Nix substitutes the pinned choose-gui binary for the placeholder.
+CHOOSE_CMD="${TEAMS_CALL_CHOOSE_CMD:-@choose@}"
 STATE_DIR="${TEAMS_CALL_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/raycast-teams-call}"
 STATUS_FILE="$STATE_DIR/status"
 
@@ -132,7 +133,7 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 CONTACTS_FILE="$WORK_DIR/contacts.tsv"
-DISPLAY_FILE="$WORK_DIR/display.tsv"
+DISPLAY_FILE="$WORK_DIR/display.txt"
 
 # The temporary files are private (0600 through umask). Personal data is never
 # written to the shared /tmp log used by the previous implementation. Skipped
@@ -204,52 +205,30 @@ if [[ "$MATCH_COUNT" -eq 0 ]]; then
   exit 1
 fi
 
-awk -F '\t' '{ print $1 "\t" $2 }' "$CONTACTS_FILE" > "$DISPLAY_FILE"
+# One row per match, numbered so typing the number filters to that row.
+awk -F '\t' '{ printf "%-4s %s\n", $1, $3 }' "$CONTACTS_FILE" > "$DISPLAY_FILE"
 /bin/chmod 600 "$DISPLAY_FILE"
 
-if [[ ! -x "$OSASCRIPT_CMD" ]]; then
-  write_status "Fehler"
-  echo "Die macOS-Auswahlanzeige ist nicht verfügbar." >&2
-  exit 1
+if [[ "$MATCH_COUNT" -eq 1 ]]; then
+  SELECTED_ID=1
+else
+  if [[ ! -x "$CHOOSE_CMD" ]]; then
+    write_status "Fehler"
+    echo "Die Auswahlanzeige (choose) ist nicht verfügbar." >&2
+    exit 1
+  fi
+
+  # The picker reads the names from stdin, so no contact data ends up in
+  # process args. It prints the 0-based index of the picked row, or -1 with
+  # exit status 1 when cancelled (Esc, Cmd-Q or switching away).
+  ROWS=$(( MATCH_COUNT < 12 ? MATCH_COUNT : 12 ))
+  PICKED_INDEX="$("$CHOOSE_CMD" -i -a -n "$ROWS" -w 28 -s 20 -f "Helvetica Neue" \
+    -c 0A84FF -b 3A3A3C -p "Wen anrufen? ↑↓ ⏎ oder ⌘1–9" < "$DISPLAY_FILE" || true)"
+  SELECTED_ID=""
+  if [[ "$PICKED_INDEX" =~ ^[0-9]+$ ]]; then
+    SELECTED_ID=$(( PICKED_INDEX + 1 ))
+  fi
 fi
-
-# A single match is preselected but still shown, so no call ever starts
-# without the user confirming the person. Pass only a private temporary
-# filename to osascript. No contact or tenant data is interpolated into
-# executable AppleScript source or process args.
-SELECTED_ID="$("$OSASCRIPT_CMD" - "$DISPLAY_FILE" <<'APPLESCRIPT'
-on run argv
-  set sourceFile to POSIX file (item 1 of argv)
-  set raw to read sourceFile as «class utf8»
-  set rows to paragraphs of raw
-  set displayRows to {}
-
-  repeat with rowText in rows
-    if (rowText as text) is not "" then
-      set AppleScript's text item delimiters to tab
-      set columns to text items of (rowText as text)
-      set AppleScript's text item delimiters to ""
-      if (count of columns) ≥ 2 then
-        set end of displayRows to ((item 1 of columns) & ". " & (item 2 of columns))
-      end if
-    end if
-  end repeat
-
-  if (count of displayRows) is 1 then
-    set picked to choose from list displayRows with title "Teams Video Call" with prompt "Confirm the person to video call" default items displayRows without empty selection allowed
-  else
-    set picked to choose from list displayRows with title "Teams Video Call" with prompt "Pick a person to video call" without empty selection allowed
-  end if
-  if picked is false then return ""
-
-  set pickedDisplay to item 1 of picked
-  set AppleScript's text item delimiters to ". "
-  set selectedId to first text item of pickedDisplay
-  set AppleScript's text item delimiters to ""
-  return selectedId
-end run
-APPLESCRIPT
-)"
 
 if [[ -z "$SELECTED_ID" ]]; then
   write_status "Abgebrochen"

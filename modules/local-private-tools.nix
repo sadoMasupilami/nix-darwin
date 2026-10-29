@@ -40,7 +40,9 @@ in
     # contains names, email addresses, and tenant IDs.
     ".config/raycast/scripts/teams-video-call.sh" = {
       executable = true;
-      source = ../config/raycast/teams-video-call.sh;
+      source = pkgs.replaceVars ../config/raycast/teams-video-call.sh {
+        choose = "${pkgs.choose-gui}/bin/choose";
+      };
     };
   };
 }

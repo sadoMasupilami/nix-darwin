@@ -699,8 +699,11 @@ alte `/tmp/raycast-teams-video-call.log` wird nicht automatisch gelöscht.
 - Fehlerhafte Zeilen (nicht geschlossenes Anführungszeichen, weniger als drei
   Felder, ungültige E-Mail-Adresse) werden mit einer Warnung übersprungen, die
   nur die Zeilennummer nennt.
-- Auch ein einzelner Treffer öffnet die Auswahl, mit der Person vorausgewählt;
-  ein Anruf startet erst nach Bestätigung.
+- Gibt es genau einen Treffer, startet der Anruf sofort ohne Auswahl.
+- Bei mehreren Treffern öffnet sich `choose` (aus nixpkgs, im Skript fest
+  verdrahtet): ↑/↓ und ⏎ wählen, ⌘1–⌘9 ruft direkt die jeweilige Zeile an,
+  Tippen filtert (auch nach der angezeigten Nummer), Esc oder ein Klick
+  daneben bricht ab. Die Namen gehen nur über stdin an den Picker.
 - Adressen mit Nicht-ASCII-Zeichen werden in jeder Locale korrekt als UTF-8
   kodiert.
 

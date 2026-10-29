@@ -327,8 +327,8 @@ class TeamsPickerTests(unittest.TestCase):
         self.home = self.root / "home"
         self.csv = self.home / ".config" / "raycast" / "teams-people.csv"
         self.csv.parent.mkdir(mode=0o700, parents=True)
-        self.osascript = self.root / "fake-osascript"
-        self.osascript_args = self.root / "osascript-args"
+        self.choose = self.root / "fake-choose"
+        self.choose_args = self.root / "choose-args"
         self.state = self.home / ".local" / "state" / "raycast-teams-call"
         self.environment = os.environ.copy()
         self.environment.update(
@@ -336,9 +336,9 @@ class TeamsPickerTests(unittest.TestCase):
                 "HOME": str(self.home),
                 "TEAMS_PEOPLE_CSV": str(self.csv),
                 "TEAMS_CALL_DRY_RUN": "1",
-                "TEAMS_CALL_OSASCRIPT_CMD": str(self.osascript),
+                "TEAMS_CALL_CHOOSE_CMD": str(self.choose),
                 "TEAMS_CALL_STATE_DIR": str(self.state),
-                "OSASCRIPT_ARGS": str(self.osascript_args),
+                "CHOOSE_ARGS": str(self.choose_args),
             }
         )
 
@@ -352,20 +352,21 @@ class TeamsPickerTests(unittest.TestCase):
         self.csv.write_text(content, encoding="utf-8")
         self.csv.chmod(mode)
 
-    def fake_picker(self, answer: str) -> None:
-        """Records the rows the picker would show and picks `answer`."""
+    def fake_picker(self, answer: str, status: int = 0) -> None:
+        """Records the rows choose would show and prints `answer`, a 0-based
+        index like `choose -i` (-1 with status 1 when cancelled)."""
         write_executable(
-            self.osascript,
+            self.choose,
             f"""#!/usr/bin/env bash
-printf '%s\\n' "$@" > "$OSASCRIPT_ARGS"
-cat >/dev/null
-cp "$2" "$OSASCRIPT_ARGS.rows"
-printf '{answer}\\n'
+printf '%s\\n' "$@" > "$CHOOSE_ARGS"
+cat > "$CHOOSE_ARGS.rows"
+printf '{answer}'
+exit {status}
 """,
         )
 
     def shown_rows(self) -> list[str]:
-        return Path(f"{self.osascript_args}.rows").read_text(encoding="utf-8").splitlines()
+        return Path(f"{self.choose_args}.rows").read_text(encoding="utf-8").splitlines()
 
     def call_url(self, *arguments: str, bash: str = SYSTEM_BASH) -> str:
         """Places a real (faked) call and returns the deep link it opened."""
@@ -385,7 +386,6 @@ printf '{answer}\\n'
 
     def test_single_contact_discloses_no_email_tenant_or_deep_link(self) -> None:
         self.write_contacts("Private Name,private@example.test,secret-tenant\n")
-        self.fake_picker("1")
         result = self.run_picker()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("Teams-Videoanruf würde geöffnet", result.stdout)
@@ -433,32 +433,36 @@ printf '{answer}\\n'
         self.assertNotIn("private@example.test", result.stdout + result.stderr)
         self.assertEqual(self.state.joinpath("status").read_text(), "Fehler\n")
 
-    def test_multiple_contacts_pass_only_private_filename_to_osascript(self) -> None:
+    def test_multiple_contacts_pass_no_contact_data_in_picker_args(self) -> None:
         self.write_contacts(
             "One,one@example.test,tenant-one\nTwo,two@example.test,tenant-two\n"
         )
-        write_executable(
-            self.osascript,
-            """#!/usr/bin/env bash
-printf '%s\\n' "$@" > "$OSASCRIPT_ARGS"
-cat >/dev/null
-printf '2\\n'
-""",
-        )
-        result = self.run_picker()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        arguments = self.osascript_args.read_text()
-        self.assertEqual(arguments.splitlines()[0], "-")
-        self.assertNotIn("one@example.test", arguments)
-        self.assertNotIn("tenant-one", arguments)
+        self.fake_picker("1")
+        url = self.call_url()
+        self.assertIn("users=two%40example.test&", url)
+        self.assertEqual(self.shown_rows(), ["1    One", "2    Two"])
+        arguments = self.choose_args.read_text()
+        self.assertIn("-i", arguments.splitlines())
+        for secret in ("One", "Two", "@example.test", "tenant-"):
+            self.assertNotIn(secret, arguments)
         self.assertEqual(self.state.joinpath("status").read_text(), "Anruf gestartet\n")
 
-    def test_single_match_is_never_dialled_without_confirmation(self) -> None:
-        self.write_contacts("Private Name,private@example.test,secret-tenant\n")
-        self.fake_picker("")
+    def test_single_match_is_dialled_without_picker(self) -> None:
+        self.write_contacts(
+            "One,one@example.test,tenant-one\nTwo,two@example.test,tenant-two\n"
+        )
+        self.fake_picker("0")
+        url = self.call_url("two")
+        self.assertIn("users=two%40example.test&", url)
+        self.assertFalse(self.choose_args.exists())
+
+    def test_cancelled_picker_places_no_call(self) -> None:
+        self.write_contacts(
+            "One,one@example.test,tenant-one\nTwo,two@example.test,tenant-two\n"
+        )
+        self.fake_picker("-1", status=1)
         result = self.run_picker()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.shown_rows(), ["1\tPrivate Name — private@example.test"])
         self.assertIn("Abgebrochen", result.stdout)
         self.assertNotIn("würde geöffnet", result.stdout)
         self.assertEqual(self.state.joinpath("status").read_text(), "Abgebrochen\n")
@@ -466,11 +470,12 @@ printf '2\\n'
     def test_header_row_is_not_a_contact(self) -> None:
         self.write_contacts(
             "name,email,tenantId\nOne,one@example.test,tenant-one\n"
+            "Two,two@example.test,tenant-two\n"
         )
-        self.fake_picker("1")
+        self.fake_picker("0")
         result = self.run_picker()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.shown_rows(), ["1\tOne — one@example.test"])
+        self.assertEqual(self.shown_rows(), ["1    One", "2    Two"])
         self.assertEqual(result.stderr, "")
         # Only the header contains "mail"; it must not become a callable match.
         result = self.run_picker("mail")
@@ -482,14 +487,13 @@ printf '2\\n'
             '"Doe, John",john@example.test,tenant-two\n'
             '"Said ""Bob"" Smith",bob@example.test,tenant-three\n'
         )
-        self.fake_picker("1")
         url = self.call_url("john")
-        self.assertEqual(self.shown_rows(), ["1\tDoe, John — john@example.test"])
         self.assertIn("users=john%40example.test&", url)
         self.assertIn("tenantId=tenant-two&", url)
         self.fake_picker("1")
-        self.call_url("bob")
-        self.assertEqual(self.shown_rows(), ['1\tSaid "Bob" Smith — bob@example.test'])
+        url = self.call_url()
+        self.assertEqual(self.shown_rows(), ["1    Doe, John", '2    Said "Bob" Smith'])
+        self.assertIn("users=bob%40example.test&", url)
 
     def test_malformed_rows_are_skipped_by_line_number_only(self) -> None:
         self.write_contacts(
@@ -498,10 +502,9 @@ printf '2\\n'
             "Short Row,short@example.test\n"
             "One,one@example.test,tenant-one\n"
         )
-        self.fake_picker("1")
         result = self.run_picker()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.shown_rows(), ["1\tOne — one@example.test"])
+        self.assertIn("würde geöffnet", result.stdout)
         for line in (1, 2, 3):
             self.assertIn(f"teams-people.csv:{line}:", result.stderr)
         for secret in ("Unterminated", "broken@", "not-an-email", "Short Row", "tenant-"):
@@ -514,7 +517,6 @@ printf '2\\n'
                 with self.subTest(bash=bash, locale=locale):
                     self.write_contacts("Jürgen,jürgen.łukasz@example.at,tenant-ü\n")
                     self.environment["LC_ALL"] = locale
-                    self.fake_picker("1")
                     url = self.call_url(bash=bash)
                     self.assertIn("users=j%C3%BCrgen.%C5%82ukasz%40example.at&", url)
                     self.assertIn("tenantId=tenant-%C3%BC&", url)
