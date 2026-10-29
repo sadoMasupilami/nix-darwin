@@ -26,7 +26,17 @@
       flake = false;
     };
 
-    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+    # Homebrew itself. nix-homebrew still pins 7.0.4, which cannot parse the
+    # current homebrew-core (`resource "…", :test`, e.g. in ollama). Bump this
+    # tag when a tap update needs a newer Homebrew.
+    brew-src = {
+      url = "github:Homebrew/brew/7.0.11";
+      flake = false;
+    };
+    nix-homebrew = {
+      url = "github:zhaofengli/nix-homebrew";
+      inputs.brew-src.follows = "brew-src";
+    };
     determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
 
     # nix-homebrew owns these tap checkouts. Revisions live only in flake.lock

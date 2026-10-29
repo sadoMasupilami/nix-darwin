@@ -20,6 +20,7 @@ let
   };
   # The same file nix-darwin writes for its own `brew bundle` call.
   brewfile = pkgs.writeText "Brewfile" config.homebrew.brewfile;
+  brewVersion = (lib.importJSON ../flake.lock).nodes.brew-src.original.ref;
 in
 {
   # nix-homebrew owns Homebrew itself and every tap checkout. Package selection
@@ -29,6 +30,12 @@ in
   # explicitly approved, backed-up one-time migration to nix-homebrew's symlink.
   nix-homebrew = {
     enable = true;
+    # nix-homebrew labels its default package with the tag from its own
+    # flake.lock, not with the brew-src this flake overrides.
+    package = inputs.brew-src // {
+      name = "brew-${brewVersion}";
+      version = brewVersion;
+    };
     enableRosetta = false;
     user = username;
     autoMigrate = true;

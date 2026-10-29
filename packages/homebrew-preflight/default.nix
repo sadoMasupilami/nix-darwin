@@ -66,8 +66,8 @@ runCommandLocal "homebrew-preflight"
         'return CoreCaskTap.instance if user == "Homebrew" && repository == "cask"' \
         'return CoreCaskTap.instance if !Homebrew::EnvConfig.no_install_from_api? && user == "Homebrew" && repository == "cask"' \
       --replace-fail \
-        'HOMEBREW_TAP_DIRECTORY.subdirs.flat_map(&:subdirs).map { from_path(it) }' \
-        'HOMEBREW_TAP_DIRECTORY.subdirs.flat_map(&:subdirs).filter_map { from_path(it) }'
+        '.map { from_path(it) }' \
+        '.filter_map { from_path(it) }'
 
     cp "$prefix_wrapper" "$out/libexec/brew"
     chmod u+w "$out/libexec/brew"
