@@ -186,22 +186,6 @@
         "type": "github"
       }
     },
-    "homebrew-azd": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1792642795,
-        "narHash": "sha256-BUFQJ/kT+CgUm4jKQ7Ai5KFxmm2kyvSPT1sbjsk1bjY=",
-        "owner": "Azure",
-        "repo": "homebrew-azd",
-        "rev": "bb4a2725665844a94a95c61854238d58ed9d7d7d",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Azure",
-        "repo": "homebrew-azd",
-        "type": "github"
-      }
-    },
     "homebrew-cask": {
       "flake": false,
       "locked": {
@@ -414,7 +398,6 @@
         "claude-code-playground": "claude-code-playground",
         "determinate": "determinate",
         "home-manager": "home-manager",
-        "homebrew-azd": "homebrew-azd",
         "homebrew-cask": "homebrew-cask",
         "homebrew-core": "homebrew-core",
         "homebrew-silverstein-tap": "homebrew-silverstein-tap",

@@ -159,12 +159,12 @@ auf dem neuen Stand.
 - `nix-config-update all` aktualisiert alle Root-Flake-Inputs und führt danach
   den Preflight aus.
 - `nix-config-update homebrew` aktualisiert `nix-homebrew` und alle
-  `homebrew-*`-Inputs aus `flake.lock` (derzeit Core, Cask sowie die Azure- und
-  Silverstein-Taps) als gemeinsame Gruppe und führt danach den Preflight aus.
+  `homebrew-*`-Inputs aus `flake.lock` (derzeit Core, Cask sowie der
+  Silverstein-Tap) als gemeinsame Gruppe und führt danach den Preflight aus.
   Ein neuer Tap-Input mit diesem Präfix gehört automatisch zur Gruppe.
 - Ändert ein Update einen Drittanbieter-Tap (jeden `homebrew-*`-Input, der
-  nicht Homebrew selbst gehört, derzeit `Azure/homebrew-azd` und
-  `silverstein/homebrew-tap`), zeigt `nix-config-update` alte und neue Revision
+  nicht Homebrew selbst gehört, derzeit `silverstein/homebrew-tap`), zeigt
+  `nix-config-update` alte und neue Revision
   samt GitHub-Compare-Link und fragt `Continue with the preflight? [y/N]`, bevor
   Code aus dem Tap läuft. Ein Nein oder ein nicht interaktiver Lauf endet mit
   Exitcode 1; das neue `flake.lock` bleibt liegen. Nach der Prüfung dann
@@ -183,9 +183,12 @@ auf dem neuen Stand.
   und gepinntes Homebrew bleiben während des Laufs als temporäre GC-Roots
   registriert, damit eine parallel laufende Garbage Collection sie nicht löscht.
 - Der Preflight vergleicht deklarierte Formula-Taps mit den installierten
-  Receipts, damit Alias-Konflikte vor der Aktivierung auffallen. `azd` bleibt
-  explizit `azure/azd/azd`; Minutes verwendet wegen des gleichnamigen Formula-
-  Eintrags einen separaten Cask-Installationspfad.
+  Receipts, damit Alias-Konflikte vor der Aktivierung auffallen. `azd` kommt
+  aus der Core-Formel `azure-dev`: Core definiert `azd` als Alias dafür, und
+  Bundle aktualisiert über den Kurznamen, sodass eine gleichnamige Tap-Formel
+  bei jedem Upgrade aus dem Core-Quellcode gebaut würde. Minutes verwendet
+  wegen des gleichnamigen Formula-Eintrags einen separaten
+  Cask-Installationspfad.
 - Exitcodes des Preflights: 0 bestanden, 3 Bereinigung braucht eine Freigabe,
   jeder andere Wert ist ein Fehler. Stürzt Homebrew mit Status 1 ab, meldet der
   Preflight das als Fehler (Exitcode 2) und gibt keinen Freigabe-Hash aus.

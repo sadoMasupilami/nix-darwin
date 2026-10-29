@@ -49,10 +49,6 @@
       url = "github:homebrew/homebrew-cask";
       flake = false;
     };
-    homebrew-azd = {
-      url = "github:Azure/homebrew-azd";
-      flake = false;
-    };
     homebrew-silverstein-tap = {
       url = "github:silverstein/homebrew-tap";
       flake = false;

@@ -42,14 +42,12 @@ in
     mutableTaps = false;
 
     trust.taps = [
-      "azure/azd"
       "silverstein/tap"
     ];
 
     taps = {
       "homebrew/homebrew-core" = inputs.homebrew-core;
       "homebrew/homebrew-cask" = inputs.homebrew-cask;
-      "azure/homebrew-azd" = inputs.homebrew-azd;
       "silverstein/homebrew-tap" = inputs.homebrew-silverstein-tap;
     };
   };
@@ -75,10 +73,6 @@ in
       { name = "homebrew/core"; }
       { name = "homebrew/cask"; }
       {
-        name = "azure/azd";
-        trusted = true;
-      }
-      {
         name = "silverstein/tap";
         trusted = true;
       }
@@ -89,9 +83,10 @@ in
     # Bundle's strict `cleanup --all --zap` otherwise proposes removing them
     # even though Ollama needs them at runtime.
     brews = [
-      # Core also defines an `azd` alias for azure-dev. Keep using the tap
-      # recorded in the installed formula's receipt during Bundle upgrades.
-      "azure/azd/azd"
+      # Provides `azd`. Core aliases `azd` to this formula, and Bundle upgrades
+      # by short name, so a tap formula of that name would be rebuilt from the
+      # core alias' source on every upgrade.
+      "azure-dev"
       "ca-certificates"
       "lz4"
       "mlx"
