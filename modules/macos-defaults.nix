@@ -21,6 +21,14 @@
     CustomUserPreferences = {
       "com.apple.GameController".bluetoothPrefsMenuLongPressAction = 0;
 
+      # SuperCmd v2 is installed outside Homebrew and updates itself. Only the
+      # script keys are set; local-private-tools.nix installs the Teams script
+      # there as a regular file.
+      "com.supercmd.SuperCmd" = {
+        "settings.scripts.enabled" = true;
+        "settings.scripts.directories" = [ "${homeDirectory}/.config/raycast/scripts" ];
+      };
+
       "com.apple.dock".persistent-others = [
         {
           "tile-data" = {

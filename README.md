@@ -9,7 +9,7 @@ Flake für:
 - Linux mit Home Manager,
 - Homebrew einschließlich aller Tap-Quellen,
 - Shell, Git und Kommandozeilenwerkzeuge auf beiden Plattformen,
-- lokale Qwen-Transkription und den Raycast-Teams-Aufruf.
+- lokale Qwen-Transkription und den Teams-Aufruf für Raycast und SuperCmd.
 
 Benutzername, Plattformen, Home-Verzeichnisse, Hostname, Checkout-Pfade und
 State-Versionen stehen ausschließlich in
@@ -680,7 +680,17 @@ einem Hinweis abgelehnt und nicht automatisch umgestellt. Das verwaltete
 Vokabular liegt in
 [`config/qwen-meeting/context.txt`](config/qwen-meeting/context.txt).
 
-## Raycast und Teams
+## Raycast, SuperCmd und Teams
+
+Der Teams-Aufruf ist ein Raycast-Script-Command und läuft unverändert auch in
+SuperCmd v2. SuperCmd überspringt verlinkte Dateien und Ordner, deshalb
+installiert Home Manager das Skript bei jeder Aktivierung als echte Datei nach
+`~/.config/raycast/scripts` statt es zu verlinken. Beide Launcher lesen es dort.
+nix-darwin setzt in SuperCmd nur `settings.scripts.enabled` und
+`settings.scripts.directories`; andere dort angelegte Skriptordner ersetzt die
+nächste Aktivierung. SuperCmd selbst liegt außerhalb von Homebrew in
+`/Applications` und aktualisiert sich über Sparkle; der Cask
+`supercmdlabs/supercmd` liefert nur v1.
 
 Die persönliche Kontaktliste bleibt bewusst außerhalb von Git und Nix Store:
 

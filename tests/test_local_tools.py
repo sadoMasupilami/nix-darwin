@@ -543,8 +543,12 @@ exit {status}
 class ConfigurationSafetyTests(unittest.TestCase):
     def test_home_manager_module_has_no_retroactive_cleanup_activation(self) -> None:
         module = LOCAL_PRIVATE_TOOLS_MODULE.read_text(encoding="utf-8")
-        self.assertNotIn("home.activation", module)
+        # The only activation installs the Teams script as a regular file; it
+        # must not touch the contact list, the state directory or the old log.
+        self.assertEqual(module.count("home.activation."), 1)
+        self.assertIn("home.activation.installTeamsScriptCommand", module)
         self.assertNotIn("chmod", module)
+        self.assertNotIn("raycast-teams-call", module)
         self.assertNotIn("/tmp/raycast-teams-video-call.log", module)
 
 
