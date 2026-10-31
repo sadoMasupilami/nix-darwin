@@ -120,6 +120,8 @@ in
       "google-drive"
       "ghostty"
       "raycast"
+      # Open-source launcher; modules/vicinae.nix manages its settings.
+      "vicinae"
       "brave-browser"
       "commander-one"
       "daisydisk"

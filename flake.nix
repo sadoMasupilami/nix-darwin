@@ -346,6 +346,7 @@
               extraSpecialArgs = homeSpecialArgs machineConfig.darwin;
               users.${username}.imports = sharedHomeModules ++ [
                 ./modules/local-private-tools.nix
+                ./modules/vicinae.nix
               ];
             };
           }

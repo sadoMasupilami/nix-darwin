@@ -9,7 +9,7 @@ Flake für:
 - Linux mit Home Manager,
 - Homebrew einschließlich aller Tap-Quellen,
 - Shell, Git und Kommandozeilenwerkzeuge auf beiden Plattformen,
-- lokale Qwen-Transkription und den Teams-Aufruf für Raycast und SuperCmd.
+- lokale Qwen-Transkription, den Launcher Vicinae und den Teams-Aufruf.
 
 Benutzername, Plattformen, Home-Verzeichnisse, Hostname, Checkout-Pfade und
 State-Versionen stehen ausschließlich in
@@ -680,10 +680,18 @@ einem Hinweis abgelehnt und nicht automatisch umgestellt. Das verwaltete
 Vokabular liegt in
 [`config/qwen-meeting/context.txt`](config/qwen-meeting/context.txt).
 
-## Raycast, SuperCmd und Teams
+## Raycast, Vicinae, SuperCmd und Teams
 
 Der Teams-Aufruf ist ein Raycast-Script-Command und läuft unverändert auch in
-SuperCmd v2. SuperCmd überspringt verlinkte Dateien und Ordner, deshalb
+Vicinae und SuperCmd v2. Vicinae kommt als Homebrew-Cask;
+[`modules/vicinae.nix`](modules/vicinae.nix) legt `~/.config/vicinae/nix.json`
+an und trägt die Datei in die `imports` der weiterhin beschreibbaren
+`~/.config/vicinae/settings.json` ein. `nix.json` schaltet die Telemetrie ab,
+behält den Zwischenablage-Verlauf unbegrenzt, legt ihn auf ⌘⇧V und nennt den
+Skriptordner. Werte aus `settings.json`, also Änderungen über die Oberfläche,
+haben Vorrang. Eine geänderte `nix.json` übernimmt Vicinae nach einem Neustart.
+
+SuperCmd überspringt verlinkte Dateien und Ordner, deshalb
 installiert Home Manager das Skript bei jeder Aktivierung als echte Datei nach
 `~/.config/raycast/scripts` statt es zu verlinken. Beide Launcher lesen es dort.
 nix-darwin setzt in SuperCmd nur `settings.scripts.enabled` und
