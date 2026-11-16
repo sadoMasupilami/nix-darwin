@@ -21,6 +21,17 @@ let
   # The same file nix-darwin writes for its own `brew bundle` call.
   brewfile = pkgs.writeText "Brewfile" config.homebrew.brewfile;
   brewVersion = (lib.importJSON ../flake.lock).nodes.brew-src.original.ref;
+
+  # Casks whose app updates itself (e.g. via Sparkle) although the cask lacks
+  # `auto_updates true`. Homebrew then treats every newer locked cask version
+  # as outdated and `brew bundle` reinstalls it over the self-updated app,
+  # which can downgrade it and pulls the bundle out from under the running
+  # process. A pinned cask is skipped by those upgrades, so activation pins
+  # these before `brew bundle`. Drop an entry once its cask in the locked tap
+  # declares `auto_updates true`.
+  selfUpdatingCasks = [
+    "claudebar"
+  ];
 in
 {
   # nix-homebrew owns Homebrew itself and every tap checkout. Package selection
@@ -168,58 +179,81 @@ in
 
   system.build.homebrewPreflight = homebrewPreflight;
 
-  # The cleanup gate: it aborts activation before any change while undeclared
-  # packages are still installed. Removals happen only in nix-config-apply,
-  # which zaps exactly the list approved with --accept-zap before switching.
-  # Generations built from this never uninstall on activation, so neither a
-  # rollback to one nor a direct darwin-rebuild switch can bypass that
-  # approval.
-  #
-  # This replaces nix-darwin's cleanup = "check" for two reasons. "check"
-  # lives in system.checks, which the activate-system boot daemon embeds as
-  # well, so it would also run Homebrew at every boot and on every reload of
-  # that daemon, and a finding there would skip the boot-time /etc relink;
-  # preActivation runs only in activate. And "check" runs the live brew,
-  # which still has the previous generation's taps until setup-homebrew
-  # replaces them later in activate, so a rename in a tap update can make it
-  # disagree with the approved preview. The gate runs the preflight's
-  # launcher instead: the preview, apply's check after the approved removal
-  # and this gate all compute the same list.
-  #
-  # darwin-rebuild switch and --rollback move the system profile before they
-  # run activate, so an aborted activation leaves the profile on a generation
-  # that never ran. nix-config-apply therefore first runs activate in check
-  # mode, which stops after this gate and nix-darwin's checks; see the README
-  # for resetting the profile after a direct switch.
-  system.activationScripts.preActivation.text = lib.mkBefore ''
-    if [ -f ${config.homebrew.prefix}/bin/brew ]; then
-      homebrewCleanupExitCode=0
-      homebrewCleanupResult=$(
-        PATH="${config.homebrew.prefix}/bin:${lib.makeBinPath [ pkgs.mas ]}:$PATH" \
-          sudo --preserve-env=PATH --user=${lib.escapeShellArg config.homebrew.user} --set-home \
-          ${homebrewPreflight}/bin/brew bundle cleanup --all --zap --file=${brewfile} </dev/null 2>&1
-      ) || homebrewCleanupExitCode=$?
-      # Exit status 1 is also brew's generic crash status. Only an actual
-      # removal list is a finding that an approval can clear.
-      if [ "$homebrewCleanupExitCode" -eq 1 ] \
-        && grep -Eq '^Would (uninstall|untap)' <<<"$homebrewCleanupResult"; then
-        printf >&2 '\e[1;31merror: found Homebrew packages not listed in the Brewfile, aborting activation\e[0m\n'
-        printf >&2 '%s\n' "$homebrewCleanupResult"
-        printf >&2 '\nReview them with nix-config-preflight and remove them only with nix-config-apply --accept-zap HASH.\n'
-      elif [ "$homebrewCleanupExitCode" -ne 0 ]; then
-        printf >&2 '\e[1;31merror: brew bundle cleanup failed, aborting activation\e[0m\n'
-        printf >&2 '%s\n' "$homebrewCleanupResult"
+  system.activationScripts = {
+    # Pin the self-updating casks right before nix-darwin's `brew bundle`. A cask
+    # that is not installed yet cannot be pinned; Bundle installs it now and the
+    # next activation pins it before any upgrade could replace it. The order 750
+    # lands after nix-homebrew's setup-homebrew (mkBefore, 500), so this
+    # generation's brew and taps do the pinning, and before Bundle (1000).
+    homebrew.text = lib.mkOrder 750 ''
+      if [ -f ${config.homebrew.prefix}/bin/brew ]; then
+        selfUpdatingCasks=(${lib.escapeShellArgs selfUpdatingCasks})
+        for cask in "''${selfUpdatingCasks[@]}"; do
+          if [ -d ${config.homebrew.prefix}/Caskroom/"$cask" ] \
+            && [ ! -L ${config.homebrew.prefix}/var/homebrew/pinned_casks/"$cask" ]; then
+            echo >&2 "Pinning self-updating cask $cask..."
+            PATH="${config.homebrew.prefix}/bin:$PATH" \
+              sudo --preserve-env=PATH --user=${lib.escapeShellArg config.homebrew.user} --set-home \
+              env HOMEBREW_NO_AUTO_UPDATE=1 brew pin --cask "$cask" </dev/null \
+              || echo >&2 "warning: could not pin $cask; brew bundle may reinstall it over the self-updated app"
+          fi
+        done
       fi
-      if [ "$homebrewCleanupExitCode" -ne 0 ]; then
-        if [ "''${checkActivation:-0}" != 1 ]; then
-          printf >&2 '\nIf darwin-rebuild switch or --rollback started this activation, the system\n'
-          printf >&2 'profile already names this generation. Reset it before the next reboot:\n'
-          printf >&2 '  sudo nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f /run/current-system)"\n'
+    '';
+
+    # The cleanup gate: it aborts activation before any change while undeclared
+    # packages are still installed. Removals happen only in nix-config-apply,
+    # which zaps exactly the list approved with --accept-zap before switching.
+    # Generations built from this never uninstall on activation, so neither a
+    # rollback to one nor a direct darwin-rebuild switch can bypass that
+    # approval.
+    #
+    # This replaces nix-darwin's cleanup = "check" for two reasons. "check"
+    # lives in system.checks, which the activate-system boot daemon embeds as
+    # well, so it would also run Homebrew at every boot and on every reload of
+    # that daemon, and a finding there would skip the boot-time /etc relink;
+    # preActivation runs only in activate. And "check" runs the live brew,
+    # which still has the previous generation's taps until setup-homebrew
+    # replaces them later in activate, so a rename in a tap update can make it
+    # disagree with the approved preview. The gate runs the preflight's
+    # launcher instead: the preview, apply's check after the approved removal
+    # and this gate all compute the same list.
+    #
+    # darwin-rebuild switch and --rollback move the system profile before they
+    # run activate, so an aborted activation leaves the profile on a generation
+    # that never ran. nix-config-apply therefore first runs activate in check
+    # mode, which stops after this gate and nix-darwin's checks; see the README
+    # for resetting the profile after a direct switch.
+    preActivation.text = lib.mkBefore ''
+      if [ -f ${config.homebrew.prefix}/bin/brew ]; then
+        homebrewCleanupExitCode=0
+        homebrewCleanupResult=$(
+          PATH="${config.homebrew.prefix}/bin:${lib.makeBinPath [ pkgs.mas ]}:$PATH" \
+            sudo --preserve-env=PATH --user=${lib.escapeShellArg config.homebrew.user} --set-home \
+            ${homebrewPreflight}/bin/brew bundle cleanup --all --zap --file=${brewfile} </dev/null 2>&1
+        ) || homebrewCleanupExitCode=$?
+        # Exit status 1 is also brew's generic crash status. Only an actual
+        # removal list is a finding that an approval can clear.
+        if [ "$homebrewCleanupExitCode" -eq 1 ] \
+          && grep -Eq '^Would (uninstall|untap)' <<<"$homebrewCleanupResult"; then
+          printf >&2 '\e[1;31merror: found Homebrew packages not listed in the Brewfile, aborting activation\e[0m\n'
+          printf >&2 '%s\n' "$homebrewCleanupResult"
+          printf >&2 '\nReview them with nix-config-preflight and remove them only with nix-config-apply --accept-zap HASH.\n'
+        elif [ "$homebrewCleanupExitCode" -ne 0 ]; then
+          printf >&2 '\e[1;31merror: brew bundle cleanup failed, aborting activation\e[0m\n'
+          printf >&2 '%s\n' "$homebrewCleanupResult"
         fi
-        exit 2
+        if [ "$homebrewCleanupExitCode" -ne 0 ]; then
+          if [ "''${checkActivation:-0}" != 1 ]; then
+            printf >&2 '\nIf darwin-rebuild switch or --rollback started this activation, the system\n'
+            printf >&2 'profile already names this generation. Reset it before the next reboot:\n'
+            printf >&2 '  sudo nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f /run/current-system)"\n'
+          fi
+          exit 2
+        fi
       fi
-    fi
-  '';
+    '';
+  };
 
   assertions = [
     {
@@ -233,6 +267,10 @@ in
     {
       assertion = builtins.elem "silverstein/tap/minutes" caskNames;
       message = "The Homebrew manifest must retain the Minutes cask.";
+    }
+    {
+      assertion = lib.all (cask: builtins.elem cask caskNames) selfUpdatingCasks;
+      message = "Every entry in selfUpdatingCasks must also be declared in homebrew.casks.";
     }
     {
       assertion = !(builtins.elem "mas" brewNames);

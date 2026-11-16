@@ -318,6 +318,15 @@ Tap-Quellen fixieren die Paketdefinitionen; App-eigene Updater und App-Store-
 Versionen können davon unabhängig sein. Nix-Rollbacks rollen diese Apps nicht
 zurück.
 
+Aktualisiert sich eine App selbst (etwa über Sparkle), ohne dass ihr Cask
+`auto_updates true` deklariert, hält Homebrew jede neuere gelockte
+Cask-Version für ein Upgrade und installiert sie über die selbst aktualisierte
+App, im Zweifel als Downgrade. Solche Casks stehen in `selfUpdatingCasks` in
+[`modules/homebrew.nix`](modules/homebrew.nix); die Aktivierung pinnt sie vor
+`brew bundle`, und gepinnte Casks überspringt Bundle beim Upgrade. Derzeit
+betrifft das nur `claudebar`. Ein Eintrag kann entfallen, sobald der gelockte
+Cask `auto_updates true` deklariert.
+
 Die gewählte Homebrew-Politik ist `autoUpdate = false`, `upgrade = true` und
 `cleanup = "none"` mit der Prüfung oben; gezappt wird nur über die Freigabe in
 `nix-config-apply`.
